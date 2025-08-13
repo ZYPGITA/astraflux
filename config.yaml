@@ -1,0 +1,20 @@
+Mongodb:
+  host: 127.0.0.1
+  port: 27017
+  db: astraflux
+  username: scheduleAdmin
+  password: scheduleAdminPassword
+
+Redis:
+  host: 127.0.0.1
+  port: 6379
+  password: scheduleAdminPassword
+
+RabbitMQ:
+  host: 127.0.0.1
+  port: 5672
+  username: scheduleAdmin
+  password: scheduleAdminPassword
+
+logger:
+  level: INFO
