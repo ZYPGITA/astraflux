@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-import sys
 
 __all__ = ['get_ipaddr', 'is_port_open']
 
@@ -12,7 +11,7 @@ def get_ipaddr() -> str:
     Returns:
         str: The IP address of the current machine.
     """
-    return sys.modules[__name__].get_ipaddr()
+    return get_ipaddr()
 
 
 def is_port_open(port: int, ip_addr: str = None) -> bool:
@@ -27,4 +26,4 @@ def is_port_open(port: int, ip_addr: str = None) -> bool:
     Returns:
         bool: True if the port is closed, False if the port is open.
     """
-    return sys.modules[__name__].is_port_open(port, ip_addr)
+    return is_port_open(port, ip_addr)

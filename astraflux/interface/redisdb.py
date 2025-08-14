@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'initialization_redis',
     'redis_task',
@@ -44,18 +42,18 @@ def initialization_redis(config: dict):
     """
     Initialize a Redis client for use with astraflux
     """
-    return sys.modules[__name__].initialization_redis(config)
+    return initialization_redis(config)
 
 
 def redis_task() -> RedisClient:
     """
     Generate a Redis task with a REDIS configuration.
     """
-    return sys.modules[__name__].redis_task()
+    return redis_task()
 
 
 def redis_services() -> RedisClient:
     """
     Generate a Redis service with a REDIS configuration
     """
-    return sys.modules[__name__].redis_services()
+    return redis_services()

@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-import sys
 
 __all__ = [
     "initialization_scheduler",
@@ -15,7 +14,7 @@ def initialization_scheduler(config: dict):
     Initialize the scheduler.
     :param config: The configuration dictionary.
     """
-    return sys.modules[__name__].initialization_scheduler(config)
+    return initialization_scheduler(config)
 
 
 def scheduler_add_job(job_id, cron_str, func_object, timezone="UTC", args=None, kwargs=None, ipaddrs=None,
@@ -31,7 +30,7 @@ def scheduler_add_job(job_id, cron_str, func_object, timezone="UTC", args=None, 
     :param ipaddrs: List of allowed IP addresses to run the task.
     :param exec_type: The type of task to run. thread / process
     """
-    return sys.modules[__name__].scheduler_add_job(
+    return scheduler_add_job(
         job_id, cron_str, func_object, timezone, args, kwargs, ipaddrs, exec_type)
 
 
@@ -40,18 +39,18 @@ def scheduler_remove_job(job_id):
     Remove a job from the scheduler.
     :param job_id: The ID of the job to remove.
     """
-    return sys.modules[__name__].scheduler_remove_job(job_id)
+    return scheduler_remove_job(job_id)
 
 
 def scheduler_start():
     """
     Start the scheduler.
     """
-    return sys.modules[__name__].scheduler_start()
+    return scheduler_start()
 
 
 def scheduler_stop():
     """
     Stop the scheduler.
     """
-    return sys.modules[__name__].scheduler_stop()
+    return scheduler_stop()

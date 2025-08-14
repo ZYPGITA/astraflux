@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-import sys
 
 __all__ = [
     "get_date_time_obj",
@@ -31,7 +30,7 @@ def get_date_time_obj(data_str: str, fmt=False, timezone=False):
     Returns:
         datetime.datetime: A datetime object representing the converted time.
     """
-    return sys.modules[__name__].get_date_time_obj(data_str, fmt, timezone)
+    return get_date_time_obj(data_str, fmt, timezone)
 
 
 def format_converted_time(data_str: str, fmt=False, timezone=False, r_fmt=False):
@@ -47,7 +46,7 @@ def format_converted_time(data_str: str, fmt=False, timezone=False, r_fmt=False)
     Returns:
         str: A formatted time string.
     """
-    return sys.modules[__name__].format_converted_time(data_str, fmt, timezone, r_fmt)
+    return format_converted_time(data_str, fmt, timezone, r_fmt)
 
 
 def get_converted_time(fmt=False, timezone=False):
@@ -73,7 +72,7 @@ def get_converted_time_float(fmt=False, timezone=False):
     Returns:
         float: A float representing the current time in the specified format and timezone.
     """
-    return sys.modules[__name__].get_converted_time_float(fmt, timezone)
+    return get_converted_time_float(fmt, timezone)
 
 
 def get_yes_today(data_str: str, fmt=False, timezone=False):
@@ -88,7 +87,7 @@ def get_yes_today(data_str: str, fmt=False, timezone=False):
     Returns:
         str: A string representing the previous day's date in the specified format and timezone.
     """
-    return sys.modules[__name__].get_yes_today(data_str, fmt, timezone)
+    return get_yes_today(data_str, fmt, timezone)
 
 
 def get_yesterday_date(fmt=False, timezone=False, days=1):
@@ -103,7 +102,7 @@ def get_yesterday_date(fmt=False, timezone=False, days=1):
     Returns:
         str: A string representing the previous day's time in the specified format and timezone.
     """
-    return sys.modules[__name__].get_yesterday_date(days, fmt, timezone)
+    return get_yesterday_date(days, fmt, timezone)
 
 
 def convert_timestamp_to_timezone(timestamp, fmt=False, timezone=False):
@@ -118,7 +117,7 @@ def convert_timestamp_to_timezone(timestamp, fmt=False, timezone=False):
     Returns:
         str: A string representing the converted time in the specified format and timezone.
     """
-    return sys.modules[__name__].get_converted_timestamp_to_timezone(timestamp, fmt, timezone)
+    return get_converted_timestamp_to_timezone(timestamp, fmt, timezone)
 
 
 def get_converted_timestamp(date_string: str, fmt=False, timezone=False):
@@ -133,7 +132,7 @@ def get_converted_timestamp(date_string: str, fmt=False, timezone=False):
     Returns:
         float: A timestamp representing the converted time.
     """
-    return sys.modules[__name__].get_converted_timestamp(date_string, fmt, timezone)
+    return get_converted_timestamp(date_string, fmt, timezone)
 
 
 def get_date_list(start_day: str, end_day: str):
@@ -147,7 +146,7 @@ def get_date_list(start_day: str, end_day: str):
     Returns:
         list: A list of strings representing each day within the time range in the format '%Y%m%d'.
     """
-    return sys.modules[__name__].get_date_list(start_day, end_day)
+    return get_date_list(start_day, end_day)
 
 
 def get_week_num(date_str: str):
@@ -158,7 +157,7 @@ def get_week_num(date_str: str):
     Returns:
         int: The week number.
     """
-    return sys.modules[__name__].get_week_num(date_str)
+    return get_week_num(date_str)
 
 
 def get_current_week():
@@ -167,7 +166,7 @@ def get_current_week():
     Returns:
         int: The week number.
     """
-    return sys.modules[__name__].get_current_week()
+    return get_current_week()
 
 
 def is_timestamp_within_days(timestamp: int, fmt=False, timezone=False):
@@ -180,7 +179,7 @@ def is_timestamp_within_days(timestamp: int, fmt=False, timezone=False):
     Returns:
         bool: True if the timestamp is within days, False otherwise.
     """
-    return sys.modules[__name__].is_timestamp_within_days(timestamp, fmt, timezone)
+    return is_timestamp_within_days(timestamp, fmt, timezone)
 
 
 def convert_timestamp_to_timezone_obj(timestamp, timezone=False):
@@ -192,7 +191,7 @@ def convert_timestamp_to_timezone_obj(timestamp, timezone=False):
     Returns:
         datetime.datetime: A datetime object representing the converted time.
     """
-    return sys.modules[__name__].convert_timestamp_to_timezone(timestamp, timezone)
+    return convert_timestamp_to_timezone(timestamp, timezone)
 
 
 def convert_timestamp_to_timezone_str(timestamp, timezone=False, fmt=False):
@@ -205,4 +204,4 @@ def convert_timestamp_to_timezone_str(timestamp, timezone=False, fmt=False):
     Returns:
         str: A string representing the converted time in the specified format and timezone.
     """
-    return sys.modules[__name__].convert_timestamp_to_timezone(timestamp, fmt, timezone)
+    return convert_timestamp_to_timezone(timestamp, fmt, timezone)

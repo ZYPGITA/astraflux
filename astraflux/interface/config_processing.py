@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'load_settings',
     'current_dir',
@@ -15,14 +13,14 @@ def current_dir() -> str:
     """
     Return the current directory of the current working directory.
     """
-    return sys.modules[__name__].current_dir()
+    return current_dir()
 
 
 def global_config() -> dict:
     """
     Return the global configuration settings.
     """
-    return sys.modules[__name__].global_config()
+    return global_config()
 
 
 def load_settings(yaml_file: str, workspace: str) -> None:
@@ -32,7 +30,7 @@ def load_settings(yaml_file: str, workspace: str) -> None:
     :param workspace: workspace path
     :return:
     """
-    return sys.modules[__name__].load_settings(yaml_file, workspace)
+    return load_settings(yaml_file, workspace)
 
 
 def load_config(encoded_config: str) -> dict:
@@ -45,11 +43,11 @@ def load_config(encoded_config: str) -> dict:
     Returns:
         dict: The decoded configuration dictionary.
     """
-    return sys.modules[__name__].load_config(encoded_config)
+    return load_config(encoded_config)
 
 
 def dump_config(config: dict) -> str:
     """
     Dump the encoded configuration string.
     """
-    return sys.modules[__name__].dump_config(config)
+    return dump_config(config)

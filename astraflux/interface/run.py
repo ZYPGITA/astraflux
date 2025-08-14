@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'initialization_nexusflow',
     'services_registry',
@@ -13,7 +11,7 @@ def initialization_nexusflow(config: dict):
     """
     initialization astraflux
     """
-    return sys.modules[__name__].initialization_nexusflow(config)
+    return initialization_nexusflow(config)
 
 
 def services_registry(services: list):
@@ -23,7 +21,7 @@ def services_registry(services: list):
     Args:
         services (list): A list of services to be registered.
     """
-    return sys.modules[__name__].services_registry(services)
+    return services_registry(services)
 
 
 def services_start():
@@ -31,4 +29,4 @@ def services_start():
     Starts the service management process. Currently, this method is a placeholder
     and does not perform any actions.
     """
-    return sys.modules[__name__].services_start()
+    return services_start()

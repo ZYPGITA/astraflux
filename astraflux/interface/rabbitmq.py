@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'initialization_rabbitmq',
     'rabbitmq_send_message',
@@ -15,7 +13,7 @@ def initialization_rabbitmq(config: dict):
     Args:
         config (dict): A dictionary containing the configuration.
     """
-    return sys.modules[__name__].initialization_rabbitmq(config)
+    return initialization_rabbitmq(config)
 
 
 def rabbitmq_send_message(queue: str, message: dict):
@@ -26,7 +24,7 @@ def rabbitmq_send_message(queue: str, message: dict):
         queue (str): The name of the queue to send the message to.
         message (dict): The message to send. It will be converted to a JSON string if it's not already.
     """
-    return sys.modules[__name__].rabbitmq_send_message(queue, message)
+    return rabbitmq_send_message(queue, message)
 
 
 def rabbitmq_receive_message(queue: str, callback):
@@ -37,4 +35,4 @@ def rabbitmq_receive_message(queue: str, callback):
         queue (str): The name of the queue to consume messages from.
         callback (callable): The callback function to handle received messages.
     """
-    return sys.modules[__name__].rabbitmq_receive_message(queue, callback)
+    return rabbitmq_receive_message(queue, callback)

@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'initialization_rpc_proxy',
     'generate_unique',
@@ -18,7 +16,7 @@ def initialization_rpc_proxy(config: dict):
     Args:
         config (dict): A dictionary containing the configuration.
     """
-    return sys.modules[__name__].initialization_rpc_proxy(config)
+    return initialization_rpc_proxy(config)
 
 
 def generate_unique():
@@ -27,7 +25,7 @@ def generate_unique():
     Returns:
         str: The generated identifier.
     """
-    return sys.modules[__name__].generate_unique()
+    return generate_unique()
 
 
 def remote_call(service_name: str, method_name: str, **params):
@@ -42,7 +40,7 @@ def remote_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
-    return sys.modules[__name__].remote_call(service_name, method_name, **params)
+    return remote_call(service_name, method_name, **params)
 
 
 def proxy_call(service_name: str, method_name: str, **params):
@@ -57,7 +55,7 @@ def proxy_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
-    return sys.modules[__name__].proxy_call(service_name, method_name, **params)
+    return proxy_call(service_name, method_name, **params)
 
 
 def rpc_decorator(func):
@@ -68,7 +66,7 @@ def rpc_decorator(func):
     Returns:
         function: The decorated function.
     """
-    return sys.modules[__name__].rpc_decorator(func)
+    return rpc_decorator(func)
 
 
 def service_running(service_cls, config):
@@ -78,4 +76,4 @@ def service_running(service_cls, config):
         config (dict): The AMQP URL for the RabbitMQ server.
         service_cls (class): The function to be called when a message is received.
     """
-    return sys.modules[__name__].service_running(service_cls, config)
+    return service_running(service_cls, config)

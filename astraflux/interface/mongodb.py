@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-import sys
-
 __all__ = [
     'initialization_mongo',
     'mongodb_node',
@@ -148,25 +146,25 @@ def initialization_mongo(config: dict):
     """
     Initialize a MongoDB database connection with a MongoDB configuration.
     """
-    return sys.modules[__name__].initialization_mongo(config)
+    return initialization_mongo(config)
 
 
 def mongodb_node() -> MongoClient:
     """
     Generate a MongoDB node with a MongoDB configuration.
     """
-    return sys.modules[__name__].mongodb_node()
+    return mongodb_node()
 
 
 def mongodb_task() -> MongoClient:
     """
     Generate a MongoDB task with a MongoDB configuration.
     """
-    return sys.modules[__name__].mongodb_task()
+    return mongodb_task()
 
 
 def mongodb_services() -> MongoClient:
     """
     Generate a MongoDB services with a MongoDB configuration.
     """
-    return sys.modules[__name__].mongodb_services()
+    return mongodb_services()
