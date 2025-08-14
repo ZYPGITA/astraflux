@@ -1,7 +1,14 @@
 # -*- encoding: utf-8 -*-
 import pymongo
 
-from astraflux.settings.keys import *
+from astraflux.meta.keys import *
+
+__all__ = [
+    'initialization_mongo',
+    'mongodb_node',
+    'mongodb_task',
+    'mongodb_services'
+]
 
 _MONGODB_CONFIG = MONGODB.DEFAULT_VALUE_MONGODB_URI
 
@@ -196,7 +203,7 @@ def initialization_mongo(config: dict):
     Initialize a MongoDB database connection with a MongoDB configuration.
     """
     global _MONGODB_CONFIG
-    _MONGODB_CONFIG = config.get(MONGODB.KEY_MONGO_CONFIG, MONGODB.DEFAULT_VALUE_MONGODB_URI)
+    _MONGODB_CONFIG = config.get(MONGODB.KEY_MONGODB_URI, MONGODB.DEFAULT_VALUE_MONGODB_URI)
 
 
 def mongodb_node() -> MongoClient:
@@ -239,5 +246,6 @@ def register():
     mongodb.mongodb_services = mongodb_services
     mongodb.initialization_mongo = initialization_mongo
 
-    import sys
-    sys.modules['astraflux.interface.mongodb'] = mongodb
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.mongodb'] = mongodb

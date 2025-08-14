@@ -4,7 +4,9 @@ import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-from astraflux.settings import *
+from astraflux.meta.keys import *
+
+__all__ = ['initialization_logger', 'loguru']
 
 _FMT = logging.Formatter(LOG.DEFAULT_VALUE_LOGS_FMT)
 _SUFFIX = LOG.DEFAULT_VALUE_LOGS_SUFFIX
@@ -89,5 +91,6 @@ def register():
     logger.initialization_logger = initialization_logger
     logger.loguru = loguru
 
-    import sys
-    sys.modules['astraflux.interface.logger'] = logger
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.logger'] = logger

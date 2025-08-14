@@ -2,7 +2,24 @@
 import pytz
 import datetime
 
-from astraflux.settings.keys import *
+from astraflux.meta.keys import *
+
+__all__ = [
+    "get_date_time_obj",
+    "format_converted_time",
+    "get_converted_time",
+    "get_yes_today",
+    "get_yesterday_date",
+    "convert_timestamp_to_timezone",
+    "get_converted_timestamp",
+    "get_date_list",
+    "get_week_num",
+    "get_current_week",
+    "is_timestamp_within_days",
+    "convert_timestamp_to_timezone_obj",
+    "convert_timestamp_to_timezone_str",
+    'get_converted_time_float'
+]
 
 _fmt = TIME.DEFAULT_VALUE_TIME_FMT
 _timezone = TIME.DEFAULT_VALUE_TIMEZONE
@@ -302,5 +319,6 @@ def register():
     format_time.convert_timestamp_to_timezone_str = convert_timestamp_to_timezone_str
     format_time.get_converted_time_float = get_converted_time_float
 
-    import sys
-    sys.modules['astraflux.interface.format_time'] = format_time
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.format_time'] = format_time

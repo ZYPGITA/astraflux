@@ -1,10 +1,9 @@
 # -*- encoding: utf-8 -*-
-from astraflux.inject import inject_implementation
+import sys
 
 __all__ = ['get_ipaddr', 'is_port_open']
 
 
-@inject_implementation()
 def get_ipaddr() -> str:
     """
     Retrieves the IP address of the current machine by establishing a UDP connection
@@ -13,9 +12,9 @@ def get_ipaddr() -> str:
     Returns:
         str: The IP address of the current machine.
     """
+    return sys.modules[__name__].get_ipaddr()
 
 
-@inject_implementation()
 def is_port_open(port: int, ip_addr: str = None) -> bool:
     """
     Checks if a specified port on a given IP address is open by attempting to establish
@@ -28,3 +27,4 @@ def is_port_open(port: int, ip_addr: str = None) -> bool:
     Returns:
         bool: True if the port is closed, False if the port is open.
     """
+    return sys.modules[__name__].is_port_open(port, ip_addr)

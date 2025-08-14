@@ -6,8 +6,20 @@ import psutil
 import subprocess
 from pathlib import Path
 
-from astraflux.settings import *
-from astraflux.interface import *
+from astraflux.meta.keys import *
+
+from astraflux.settings import dump_config
+from astraflux.logger import initialization_logger
+from astraflux.mq import initialization_rabbitmq
+from astraflux.rpc import initialization_rpc_proxy
+from astraflux.databases import initialization_mongo, initialization_redis
+from astraflux.scheduler import scheduler_add_job, scheduler_start, initialization_scheduler
+
+__all__ = [
+    'initialization_nexusflow',
+    'services_registry',
+    'services_start'
+]
 
 _CONFIG = {}
 _ENCODED_CONFIG = None
@@ -166,5 +178,6 @@ def register():
     run.services_registry = services_registry
     run.services_start = services_start
 
-    import sys
-    sys.modules['astraflux.interface.run'] = run
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.run'] = run

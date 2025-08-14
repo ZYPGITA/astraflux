@@ -6,6 +6,19 @@ import multiprocessing
 from typing import Callable, Optional, Dict, Any, List
 import uuid
 
+from astraflux.meta.keys import *
+
+__all__ = [
+    "async_task_add",
+    "async_task_run",
+    "async_task_get_status",
+    "async_task_wait",
+    "async_task_stop_all",
+    "async_task_list",
+    "async_task_run_all",
+    "async_task_wait_all"
+]
+
 
 class BaseTask:
     """Base class for all tasks"""
@@ -370,5 +383,6 @@ def register():
     async_task.async_task_run_all = async_task_run_all
     async_task.async_task_wait_all = async_task_wait_all
 
-    import sys
-    sys.modules['astraflux.interface.async_task'] = async_task
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.async_task'] = async_task

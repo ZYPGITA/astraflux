@@ -1,12 +1,22 @@
 # -*- encoding: utf-8 -*-
+from astraflux.meta.keys import *
 
-from astraflux.settings import *
-from astraflux.interface.snowflake import snowflake_id
-from astraflux.interface.format_time import get_converted_time
-from astraflux.interface.rabbitmq import rabbitmq_send_message
+from astraflux.generateId import snowflake_id
+from astraflux.mq import rabbitmq_send_message
+from astraflux.utils import get_converted_time
 
 from ._mongodb import mongodb_task, mongodb_services
 from ._redisdb import redis_task
+
+__all__ = [
+    "task_submit_databases",
+    "task_submit_databases_and_send",
+    "subtask_create",
+    "query_task_by_task_id",
+    "query_worker_running_number",
+    "task_stop",
+    "redis_get_task_status_by_task_id"
+]
 
 
 def _task_required_field_check(message: dict):
@@ -214,5 +224,6 @@ def register():
     databases_api.task_stop = task_stop
     databases_api.redis_get_task_status_by_task_id = redis_get_task_status_by_task_id
 
-    import sys
-    sys.modules['astraflux.interface.databases_api'] = databases_api
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.databases_api'] = databases_api

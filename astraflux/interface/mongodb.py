@@ -1,8 +1,13 @@
 # -*- encoding: utf-8 -*-
 
-from astraflux.inject import inject_implementation
+import sys
 
-__all__ = ['initialization_mongo', 'mongodb_node', 'mongodb_task', 'mongodb_services']
+__all__ = [
+    'initialization_mongo',
+    'mongodb_node',
+    'mongodb_task',
+    'mongodb_services'
+]
 
 
 class MongoClient:
@@ -139,29 +144,29 @@ class MongoClient:
         """
 
 
-@inject_implementation()
 def initialization_mongo(config: dict):
     """
     Initialize a MongoDB database connection with a MongoDB configuration.
     """
+    return sys.modules[__name__].initialization_mongo(config)
 
 
-@inject_implementation()
 def mongodb_node() -> MongoClient:
     """
     Generate a MongoDB node with a MongoDB configuration.
     """
+    return sys.modules[__name__].mongodb_node()
 
 
-@inject_implementation()
 def mongodb_task() -> MongoClient:
     """
     Generate a MongoDB task with a MongoDB configuration.
     """
+    return sys.modules[__name__].mongodb_task()
 
 
-@inject_implementation()
 def mongodb_services() -> MongoClient:
     """
     Generate a MongoDB services with a MongoDB configuration.
     """
+    return sys.modules[__name__].mongodb_services()

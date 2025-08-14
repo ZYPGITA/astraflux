@@ -9,7 +9,7 @@ af = AstraFlux('config.yaml', os_dir)
 loguru().info(f'current_dir == {current_dir()}')
 
 if __name__ == '__main__':
-    for i in range(1):
+    for i in range(10):
         message = {'task_id': snowflake_id(), 'status': TASK.KEY_TASK_STOP_STATUS, 'name': 'xxxx'}
         task_submit_databases(queue='test_server', message=message)
 

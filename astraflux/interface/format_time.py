@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-from astraflux.inject import inject_implementation
+import sys
 
 __all__ = [
     "get_date_time_obj",
@@ -19,7 +19,6 @@ __all__ = [
 ]
 
 
-@inject_implementation()
 def get_date_time_obj(data_str: str, fmt=False, timezone=False):
     """
     Specify the timezone and format, and return a time object.
@@ -32,9 +31,9 @@ def get_date_time_obj(data_str: str, fmt=False, timezone=False):
     Returns:
         datetime.datetime: A datetime object representing the converted time.
     """
+    return sys.modules[__name__].get_date_time_obj(data_str, fmt, timezone)
 
 
-@inject_implementation()
 def format_converted_time(data_str: str, fmt=False, timezone=False, r_fmt=False):
     """
     Format a time string according to the specified format and timezone.
@@ -48,9 +47,9 @@ def format_converted_time(data_str: str, fmt=False, timezone=False, r_fmt=False)
     Returns:
         str: A formatted time string.
     """
+    return sys.modules[__name__].format_converted_time(data_str, fmt, timezone, r_fmt)
 
 
-@inject_implementation()
 def get_converted_time(fmt=False, timezone=False):
     """
     Specify timezone and format, return the current time.
@@ -62,9 +61,9 @@ def get_converted_time(fmt=False, timezone=False):
     Returns:
         str: A string representing the current time in the specified format and timezone.
     """
+    return get_converted_time(fmt, timezone)
 
 
-@inject_implementation()
 def get_converted_time_float(fmt=False, timezone=False):
     """
     Specify timezone and format, return the current time as a float.
@@ -74,9 +73,9 @@ def get_converted_time_float(fmt=False, timezone=False):
     Returns:
         float: A float representing the current time in the specified format and timezone.
     """
+    return sys.modules[__name__].get_converted_time_float(fmt, timezone)
 
 
-@inject_implementation()
 def get_yes_today(data_str: str, fmt=False, timezone=False):
     """
     Get the previous day's date from the given date string.
@@ -89,9 +88,9 @@ def get_yes_today(data_str: str, fmt=False, timezone=False):
     Returns:
         str: A string representing the previous day's date in the specified format and timezone.
     """
+    return sys.modules[__name__].get_yes_today(data_str, fmt, timezone)
 
 
-@inject_implementation()
 def get_yesterday_date(fmt=False, timezone=False, days=1):
     """
     Specify timezone and format, return the previous day's time.
@@ -104,9 +103,9 @@ def get_yesterday_date(fmt=False, timezone=False, days=1):
     Returns:
         str: A string representing the previous day's time in the specified format and timezone.
     """
+    return sys.modules[__name__].get_yesterday_date(days, fmt, timezone)
 
 
-@inject_implementation()
 def convert_timestamp_to_timezone(timestamp, fmt=False, timezone=False):
     """
     Convert a timestamp to a time string in the specified timezone and format.
@@ -119,9 +118,9 @@ def convert_timestamp_to_timezone(timestamp, fmt=False, timezone=False):
     Returns:
         str: A string representing the converted time in the specified format and timezone.
     """
+    return sys.modules[__name__].get_converted_timestamp_to_timezone(timestamp, fmt, timezone)
 
 
-@inject_implementation()
 def get_converted_timestamp(date_string: str, fmt=False, timezone=False):
     """
     Convert a time string to a timestamp in the specified timezone and format.
@@ -134,9 +133,9 @@ def get_converted_timestamp(date_string: str, fmt=False, timezone=False):
     Returns:
         float: A timestamp representing the converted time.
     """
+    return sys.modules[__name__].get_converted_timestamp(date_string, fmt, timezone)
 
 
-@inject_implementation()
 def get_date_list(start_day: str, end_day: str):
     """
     Obtain every day within the time range.
@@ -148,9 +147,9 @@ def get_date_list(start_day: str, end_day: str):
     Returns:
         list: A list of strings representing each day within the time range in the format '%Y%m%d'.
     """
+    return sys.modules[__name__].get_date_list(start_day, end_day)
 
 
-@inject_implementation()
 def get_week_num(date_str: str):
     """
     Obtain a week number from the given date string.
@@ -159,18 +158,18 @@ def get_week_num(date_str: str):
     Returns:
         int: The week number.
     """
+    return sys.modules[__name__].get_week_num(date_str)
 
 
-@inject_implementation()
 def get_current_week():
     """
     Obtain current week number.
     Returns:
         int: The week number.
     """
+    return sys.modules[__name__].get_current_week()
 
 
-@inject_implementation()
 def is_timestamp_within_days(timestamp: int, fmt=False, timezone=False):
     """
     Check if a timestamp is within days.
@@ -181,9 +180,9 @@ def is_timestamp_within_days(timestamp: int, fmt=False, timezone=False):
     Returns:
         bool: True if the timestamp is within days, False otherwise.
     """
+    return sys.modules[__name__].is_timestamp_within_days(timestamp, fmt, timezone)
 
 
-@inject_implementation()
 def convert_timestamp_to_timezone_obj(timestamp, timezone=False):
     """
     Convert a timestamp to a time string.
@@ -193,9 +192,9 @@ def convert_timestamp_to_timezone_obj(timestamp, timezone=False):
     Returns:
         datetime.datetime: A datetime object representing the converted time.
     """
+    return sys.modules[__name__].convert_timestamp_to_timezone(timestamp, timezone)
 
 
-@inject_implementation()
 def convert_timestamp_to_timezone_str(timestamp, timezone=False, fmt=False):
     """
     Convert a timestamp to a time string.
@@ -206,3 +205,4 @@ def convert_timestamp_to_timezone_str(timestamp, timezone=False, fmt=False):
     Returns:
         str: A string representing the converted time in the specified format and timezone.
     """
+    return sys.modules[__name__].convert_timestamp_to_timezone(timestamp, fmt, timezone)

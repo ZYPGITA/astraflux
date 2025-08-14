@@ -10,9 +10,19 @@ from pymongo import MongoClient
 from threading import Thread, Event
 from datetime import datetime, timedelta
 
-from astraflux.settings import *
-from astraflux.interface import *
+from astraflux.meta.keys import *
+from astraflux.logger import loguru
+from astraflux.utils import get_ipaddr
+
 from .cronparser import CronParser
+
+__all__ = [
+    "initialization_scheduler",
+    "scheduler_add_job",
+    "scheduler_remove_job",
+    "scheduler_start",
+    "scheduler_stop"
+]
 
 
 class Scheduler:
@@ -272,5 +282,6 @@ def register():
     scheduler.scheduler_start = scheduler_start
     scheduler.scheduler_stop = scheduler_stop
 
-    import sys
-    sys.modules['astraflux.interface.scheduler'] = scheduler
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.scheduler'] = scheduler

@@ -6,6 +6,8 @@ KEY_PROJECT_VERSION = '1.0'
 KEY_PROJECT_NAME = 'astraflux'
 KEY_ROOT_PATH = 'current_dir'
 
+IS_REPLACE_SYS_MODULE = False
+
 
 class TABLE:
     KEY_TASK_LIST = 'task_list'
