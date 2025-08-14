@@ -5,7 +5,7 @@ with open("README.rst", "r", encoding="utf-8") as f:
 
 setup(
     name='astraflux',
-    version='1.0.3',
+    version='1.0.8',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,

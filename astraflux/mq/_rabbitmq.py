@@ -2,9 +2,13 @@
 import json
 import pika
 
-from astraflux.settings.keys import *
+from astraflux.meta.keys import *
 
-__all__ = ['initialization_rabbitmq', 'rabbitmq_send_message', 'rabbitmq_receive_message']
+__all__ = [
+    'initialization_rabbitmq',
+    'rabbitmq_send_message',
+    'rabbitmq_receive_message'
+]
 
 _RABBITMQ_URI = RABBITMQ.DEFAULT_VALUE_RABBITMQ_URI
 _MQ_CHANNEL = None
@@ -119,5 +123,6 @@ def register():
     rabbitmq.rabbitmq_receive_message = rabbitmq_receive_message
     rabbitmq.initialization_rabbitmq = initialization_rabbitmq
 
-    import sys
-    sys.modules['astraflux.interface.rabbitmq'] = rabbitmq
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.rabbitmq'] = rabbitmq

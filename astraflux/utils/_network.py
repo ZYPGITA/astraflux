@@ -1,7 +1,9 @@
 # -*- encoding: utf-8 -*-
 import socket
 
-from astraflux.settings.keys import *
+from astraflux.meta.keys import *
+
+__all__ = ['get_ipaddr', 'is_port_open']
 
 
 def get_ipaddr() -> str:
@@ -46,5 +48,6 @@ def register():
     network.get_ipaddr = get_ipaddr
     network.is_port_open = is_port_open
 
-    import sys
-    sys.modules['astraflux.interface.network'] = network
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.network'] = network

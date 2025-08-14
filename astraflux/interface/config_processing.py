@@ -1,25 +1,28 @@
 # -*- encoding: utf-8 -*-
 
-from astraflux.inject import inject_implementation
+__all__ = [
+    'load_settings',
+    'current_dir',
+    'global_config',
+    'load_config',
+    'dump_config'
+]
 
-__all__ = ['load_settings', 'current_dir', 'global_config', 'load_config', 'dump_config']
 
-
-@inject_implementation()
 def current_dir() -> str:
     """
     Return the current directory of the current working directory.
     """
+    return current_dir()
 
 
-@inject_implementation()
 def global_config() -> dict:
     """
     Return the global configuration settings.
     """
+    return global_config()
 
 
-@inject_implementation()
 def load_settings(yaml_file: str, workspace: str) -> None:
     """
     Load settings from yaml file.
@@ -27,9 +30,9 @@ def load_settings(yaml_file: str, workspace: str) -> None:
     :param workspace: workspace path
     :return:
     """
+    return load_settings(yaml_file, workspace)
 
 
-@inject_implementation()
 def load_config(encoded_config: str) -> dict:
     """
     Decode and load the encoded configuration string.
@@ -40,10 +43,11 @@ def load_config(encoded_config: str) -> dict:
     Returns:
         dict: The decoded configuration dictionary.
     """
+    return load_config(encoded_config)
 
 
-@inject_implementation()
 def dump_config(config: dict) -> str:
     """
     Dump the encoded configuration string.
     """
+    return dump_config(config)

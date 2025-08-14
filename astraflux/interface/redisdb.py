@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-from astraflux.inject import inject_implementation
-
 __all__ = [
     'initialization_redis',
     'redis_task',
@@ -40,22 +38,22 @@ class RedisClient:
         """
 
 
-@inject_implementation()
 def initialization_redis(config: dict):
     """
     Initialize a Redis client for use with astraflux
     """
+    return initialization_redis(config)
 
 
-@inject_implementation()
 def redis_task() -> RedisClient:
     """
     Generate a Redis task with a REDIS configuration.
     """
+    return redis_task()
 
 
-@inject_implementation()
 def redis_services() -> RedisClient:
     """
     Generate a Redis service with a REDIS configuration
     """
+    return redis_services()

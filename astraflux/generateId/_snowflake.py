@@ -1,7 +1,10 @@
 # -*- encoding: utf-8 -*-
 
 import time
-from astraflux.interface import *
+from astraflux.meta.keys import *
+from astraflux.utils import get_ipaddr
+
+__all__ = ["snowflake_id"]
 
 
 class SnowflakeID:
@@ -140,5 +143,6 @@ def register():
     from astraflux.interface import snowflake
     snowflake.snowflake_id = snowflake_id
 
-    import sys
-    sys.modules['astraflux.interface.snowflake'] = snowflake
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.snowflake'] = snowflake

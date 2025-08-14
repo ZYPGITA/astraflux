@@ -5,7 +5,15 @@ import json
 import yaml
 import base64
 
-from .keys import *
+from astraflux.meta.keys import *
+
+__all__ = [
+    'load_settings',
+    'current_dir',
+    'global_config',
+    'load_config',
+    'dump_config'
+]
 
 current_dir_ = 'None'
 global_config_ = {}
@@ -128,12 +136,13 @@ def dump_config(config: dict) -> str:
 
 
 def register():
-    from astraflux.settings import config_processing
+    from astraflux.interface import config_processing
     config_processing.current_dir = current_dir
     config_processing.global_config = global_config
     config_processing.load_settings = load_settings
     config_processing.load_config = load_config
     config_processing.dump_config = dump_config
 
-    import sys
-    sys.modules['astraflux.settings.config_processing'] = config_processing
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.config_processing'] = config_processing

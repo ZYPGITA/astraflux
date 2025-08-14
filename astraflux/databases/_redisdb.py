@@ -1,6 +1,12 @@
 # -*- encoding: utf-8 -*-
 import redis
-from astraflux.settings.keys import *
+from astraflux.meta.keys import *
+
+__all__ = [
+    'initialization_redis',
+    'redis_task',
+    'redis_services'
+]
 
 _REDIS_CONFIG = REDIS.DEFAULT_VALUE_REDIS_URI
 
@@ -87,5 +93,6 @@ def register():
     redisdb.redis_services = redis_services
     redisdb.initialization_redis = initialization_redis
 
-    import sys
-    sys.modules['astraflux.interface.redisdb'] = redisdb
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.redisdb'] = redisdb

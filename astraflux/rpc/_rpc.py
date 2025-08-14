@@ -4,8 +4,17 @@ import pika
 import pickle
 from functools import wraps
 
-from astraflux.settings.keys import *
-from astraflux.rpc.client import RpcClient
+from astraflux.meta.keys import *
+from .client import RpcClient
+
+__all__ = [
+    'initialization_rpc_proxy',
+    'generate_unique',
+    'remote_call',
+    'proxy_call',
+    'rpc_decorator',
+    'service_running'
+]
 
 _RPC_METHODS = {}
 _AMQP_CONFIG = {
@@ -212,5 +221,6 @@ def register():
     rpc.rpc_decorator = rpc_decorator
     rpc.service_running = service_running
 
-    import sys
-    sys.modules['astraflux.interface.rpc'] = rpc
+    if IS_REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.rpc'] = rpc

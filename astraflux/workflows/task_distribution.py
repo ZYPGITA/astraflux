@@ -1,7 +1,9 @@
 # -*- encoding: utf-8 -*-
 
-from astraflux.settings import *
-from astraflux.interface import *
+from astraflux.meta.keys import *
+from astraflux.logger import initialization_logger, loguru
+from astraflux.mq import initialization_rabbitmq, rabbitmq_send_message
+from astraflux.databases import initialization_mongo, mongodb_task, mongodb_services
 
 
 class TaskDistribution:
@@ -15,6 +17,7 @@ class TaskDistribution:
         self.config = config
         initialization_logger(config=config)
         initialization_mongo(config=config)
+        initialization_rabbitmq(config=config)
         self.loguru = loguru(filename=KEY_PROJECT_NAME, task_id='task_distribution')
 
     def run(self):

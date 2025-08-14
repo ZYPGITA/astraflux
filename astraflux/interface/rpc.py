@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-from astraflux.inject import inject_implementation
 
 __all__ = [
     'initialization_rpc_proxy',
@@ -11,25 +10,24 @@ __all__ = [
 ]
 
 
-@inject_implementation()
 def initialization_rpc_proxy(config: dict):
     """
     Initialize the logger with the given configuration.
     Args:
         config (dict): A dictionary containing the configuration.
     """
+    return initialization_rpc_proxy(config)
 
 
-@inject_implementation()
 def generate_unique():
     """
     Generates a unique identifier.
     Returns:
         str: The generated identifier.
     """
+    return generate_unique()
 
 
-@inject_implementation()
 def remote_call(service_name: str, method_name: str, **params):
     """
     Makes a remote procedure call to the specified service and method with the given parameters.
@@ -42,9 +40,9 @@ def remote_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
+    return remote_call(service_name, method_name, **params)
 
 
-@inject_implementation()
 def proxy_call(service_name: str, method_name: str, **params):
     """
     Makes a remote procedure call to the specified service and method with the given parameters.
@@ -57,9 +55,9 @@ def proxy_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
+    return proxy_call(service_name, method_name, **params)
 
 
-@inject_implementation()
 def rpc_decorator(func):
     """
     Decorator for RPC functions.
@@ -68,9 +66,9 @@ def rpc_decorator(func):
     Returns:
         function: The decorated function.
     """
+    return rpc_decorator(func)
 
 
-@inject_implementation()
 def service_running(service_cls, config):
     """
     Start a RabbitMQ consumer.
@@ -78,3 +76,4 @@ def service_running(service_cls, config):
         config (dict): The AMQP URL for the RabbitMQ server.
         service_cls (class): The function to be called when a message is received.
     """
+    return service_running(service_cls, config)

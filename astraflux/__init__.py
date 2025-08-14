@@ -1,6 +1,14 @@
 # -*- encoding: utf-8 -*-
 
-from .settings import *
+_INITIALIZED = False
+
+if not _INITIALIZED:
+    from astraflux.inject import inject_init
+
+    inject_init()
+    _INITIALIZED = True
+
+from .meta import *
 from .interface import *
 
 _version_ = '1.0.0'
@@ -17,9 +25,11 @@ class AstraFlux(object):
         :param yaml_file: yaml file path
         :param workspace: workspace path
         """
+        if not hasattr(self, '_initialized'):
+            load_settings(yaml_file=yaml_file, workspace=workspace)
+            initialization_nexusflow(config=global_config())
 
-        load_settings(yaml_file=yaml_file, workspace=workspace)
-        initialization_nexusflow(config=global_config())
+            _initialized = True
 
     def __new__(cls, *args):
         """
@@ -28,11 +38,12 @@ class AstraFlux(object):
         """
 
         if not cls._instance:
+            cls._instance = super().__new__(cls)
+
             from .inject import inject_init
             inject_init()
 
             cls._instance.__init__(*args)
-            cls._instance = super().__new__(cls)
 
         return cls._instance
 

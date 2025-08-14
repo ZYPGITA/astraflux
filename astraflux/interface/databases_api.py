@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
-from astraflux.settings import *
-from astraflux.inject import inject_implementation
+
+from astraflux.meta.keys import *
 
 __all__ = [
     "task_submit_databases",
@@ -13,7 +13,6 @@ __all__ = [
 ]
 
 
-@inject_implementation()
 def task_submit_databases(queue: str, message: dict, weight: int = TASK.DEFAULT_VALUE_TASK_WEIGHT) -> str:
     """
         Submit a task to the specified queue.
@@ -25,9 +24,9 @@ def task_submit_databases(queue: str, message: dict, weight: int = TASK.DEFAULT_
             str: The task ID associated with the submitted task.
         This method submits the provided task to the specified queue using the RabbitMQ instance.
     """
+    return task_submit_databases(queue, message, weight)
 
 
-@inject_implementation()
 def task_submit_databases_and_send(queue: str, message: dict, weight: int = TASK.DEFAULT_VALUE_TASK_WEIGHT) -> str:
     """
         Send a message to the queue.
@@ -39,9 +38,9 @@ def task_submit_databases_and_send(queue: str, message: dict, weight: int = TASK
             str: The task ID associated with the message.
         This method sends the provided message to the specified queue using the RabbitMQ instance.
     """
+    return task_submit_databases_and_send(queue, message, weight)
 
 
-@inject_implementation()
 def subtask_create(source_task_id: str, subtask_queue: str, subtasks: list) -> list:
     """
         Create a subtask for the given task ID.
@@ -53,9 +52,9 @@ def subtask_create(source_task_id: str, subtask_queue: str, subtasks: list) -> l
             str: The subtask ID associated with the created subtask.
         This method creates a subtask for the given task ID using the RabbitMQ instance.
     """
+    return subtask_create(source_task_id, subtask_queue, subtasks)
 
 
-@inject_implementation()
 def query_task_by_task_id(task_id: str) -> dict:
     """
     Query the task data of the given task ID.
@@ -64,9 +63,9 @@ def query_task_by_task_id(task_id: str) -> dict:
     Returns:
         dict: task data
     """
+    return query_task_by_task_id(task_id)
 
 
-@inject_implementation()
 def query_worker_running_number(query: dict):
     """
     Query the number of running workers based on the given query.
@@ -75,16 +74,16 @@ def query_worker_running_number(query: dict):
     Returns:
         tuple: A tuple containing the number of running workers and the maximum number of workers.
     """
+    return query_worker_running_number(query)
 
 
-@inject_implementation()
 def task_stop(task_id: str) -> None:
     """
     Stop the given task ID.
     """
+    return task_stop(task_id)
 
 
-@inject_implementation()
 def redis_get_task_status_by_task_id(task_id: str) -> str:
     """
     Get the status of the given task ID.
@@ -94,3 +93,4 @@ def redis_get_task_status_by_task_id(task_id: str) -> str:
     Returns:
         str: The status of the given task ID.
     """
+    return redis_get_task_status_by_task_id(task_id)
