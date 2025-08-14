@@ -11,8 +11,6 @@ if not _INITIALIZED:
 from .meta import *
 from .interface import *
 
-_version_ = '1.0.0'
-
 
 class AstraFlux(object):
     """
