@@ -1,5 +1,23 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+    'initialization_rpc_proxy',
+    'generate_unique',
+    'remote_call',
+    'proxy_call',
+    'rpc_decorator',
+    'service_running'
+]
+
+
+def initialization_rpc_proxy(config: dict):
+    """
+    Initialize the logger with the given configuration.
+    Args:
+        config (dict): A dictionary containing the configuration.
+    """
+    return initialization_rpc_proxy(config)
+
 
 def generate_unique():
     """

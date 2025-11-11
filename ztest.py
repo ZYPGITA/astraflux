@@ -4,16 +4,28 @@ import os
 
 from astraflux import *
 
-os_dir = os.path.dirname(__file__)
-af = AstraFlux('config.yaml', os_dir)
+current_dir = os.path.dirname(__file__)
+af = AstraFlux(yaml_file='config.yaml', current_dir=current_dir)
+
+d = get_current_dir()
+get_logger().info(d)
+
+print(snowflake_id())
 
 print(get_converted_time())
 
-loguru().info(f'current_dir == {current_dir()}')
+print(get_ipaddr())
 
-if __name__ == '__main__':
-    from servers.test_server import test_server
+# task_submit_to_db_and_mq(queue_name='test', task_data={'task_id': snowflake_id()})
 
-    af.registry(services=[test_server])
-
-    af.start()
+#
+# print(get_converted_time())
+#
+# loguru().info(f'current_dir == {current_dir()}')
+#
+# if __name__ == '__main__':
+#     from servers.test_server import test_server
+#
+#     af.registry(services=[test_server])
+#
+#     af.start()

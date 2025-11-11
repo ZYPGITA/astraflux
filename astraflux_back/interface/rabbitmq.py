@@ -1,5 +1,20 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+    'initialization_rabbitmq',
+    'rabbitmq_send_message',
+    'rabbitmq_receive_message'
+]
+
+
+def initialization_rabbitmq(config: dict):
+    """
+    Initialize the logger with the given configuration.
+    Args:
+        config (dict): A dictionary containing the configuration.
+    """
+    return initialization_rabbitmq(config)
+
 
 def rabbitmq_send_message(queue: str, message: dict):
     """
