@@ -8,6 +8,23 @@ REDIS_URI = None
 LOGS_PATH = None
 LOG_LEVEL = None
 INITIALIZED = False
+ROOT_PATH = None
+
+
+def set_root_path(root_path: str):
+    """
+    Sets the root directory for the global variables.
+    :param root_path: The root directory for the global variables.
+    """
+    global ROOT_PATH
+    ROOT_PATH = root_path
+
+
+def get_root_path():
+    """
+    Gets the root directory for the global variables.
+    """
+    return ROOT_PATH
 
 
 def set_current_dir(current_dir: str):
@@ -121,6 +138,8 @@ def get_log_level() -> str | None:
 def register():
     import sys
     from astraflux.interface import definitions
+
+    definitions.set_root_path = set_root_path
     definitions.set_current_dir = set_current_dir
     definitions.set_rabbitmq_uri = set_rabbitmq_uri
     definitions.set_redis_uri = set_redis_uri
@@ -128,6 +147,7 @@ def register():
     definitions.set_logs_path = set_logs_path
     definitions.set_log_level = set_log_level
 
+    definitions.get_root_path = get_root_path
     definitions.get_current_dir = get_current_dir
     definitions.get_rabbitmq_uri = get_rabbitmq_uri
     definitions.get_redis_uri = get_redis_uri

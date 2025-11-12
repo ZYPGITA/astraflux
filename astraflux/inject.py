@@ -19,6 +19,7 @@ def inject_init(root_path):
     """
     _globals = importlib.import_module('astraflux.definitions._globals')
     _globals.register()
+    _globals.set_root_path(root_path)
 
     for root, dirs, files in os.walk(root_path):
         if '_globals' in root:

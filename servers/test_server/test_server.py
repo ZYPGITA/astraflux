@@ -7,7 +7,7 @@ class RpcFunction(ServiceConstructor):
     service_name = 'test_server'
 
     def get_service_name(self):
-        return {"service_version": self.service_version}
+        return {"service_version": self.ipaddr}
 
     def test_func(self, **args):
         return args
@@ -17,4 +17,4 @@ class WorkerFunction(WorkerConstructor):
     worker_name = 'test_server'
 
     def run(self, data):
-        self.loguru.info(data)
+        self.logger.info(data)

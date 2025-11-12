@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+from enum import Enum
 
 PROJECT_VERSION = '2.0'
 PROJECT_NAME = 'astraflux'
@@ -16,6 +17,15 @@ class FrozenClass:
 class DEFINITIONS:
     SYSTEM_SERVICE_NAME = 'proxy_system_server'
 
+    class STATUS(Enum):
+        PENDING = "pending"
+        RUNNING = "running"
+        SUCCESS = "success"
+        FAILED = "failed"
+        RETRYING = "retrying"
+        STOPPED = "stopped"
+        WAITING = "waiting"
+
     class RPC(FrozenClass):
         CALL_TIMEOUT = 'RPC_CALL_TIMEOUT'
         PROXY = 'proxy'
@@ -26,6 +36,8 @@ class DEFINITIONS:
         FUNCTION_PARAM_DEFAULT_VALUE = 'default_value'
 
     class BUILD(FrozenClass):
+        NAME = 'name'
+
         WORKER_PID = 'worker_pid'
         WORKER_NAME = 'worker_name'
         WORKER_IPADDR = 'worker_ipaddr'
@@ -34,7 +46,6 @@ class DEFINITIONS:
         WORKER_MAX_PROCESS = 'worker_max_process'
         WORKER_RUN_PROCESS = 'worker_run_process'
 
-        NAME = 'name'
         SERVICE_PID = 'service_pid'
         SERVICE_NAME = 'service_name'
         SERVICE_IPADDR = 'service_ipaddr'
@@ -42,26 +53,20 @@ class DEFINITIONS:
         SERVICE_FUNCTIONS = 'service_functions'
 
     class TASK(FrozenClass):
-        TASK_BODY = 'body'
-        TASK_ID = 'task_id'
-        TASK_WEIGHT = 'weight'
-        TASK_STATUS = 'status'
-        TASK_SOURCE_ID = 'source_id'
-        TASK_QUEUE_NAME = 'queue_name'
-        TASK_IS_SUB_TASK = 'is_subtask'
-        TASK_IS_SUB_TASK_ALL_FINISH = 'is_subtask_all_finish'
+        BODY = 'body'
+        ID = 'task_id'
+        WEIGHT = 'weight'
+        STATUS = 'status'
+        SOURCE_ID = 'source_id'
+        QUEUE_NAME = 'queue_name'
+        IS_SUB_TASK = 'is_subtask'
+        IS_SUB_TASK_ALL_FINISH = 'is_subtask_all_finish'
 
-        TASK_WAIT_STATUS = 'wait'
-        TASK_SEND_STATUS = 'send'
-        TASK_STOP_STATUS = 'stop'
-        TASK_ERROR_STATUS = 'error'
-        TASK_RUN_STATUS = 'running'
-        TASK_SUCCESS_STATUS = 'success'
-        TASK_ERROR_MESSAGE = 'error_message'
+        END_TIME = 'end_time'
+        START_TIME = 'start_time'
+        CREATE_TIME = 'create_time'
 
-        TASK_END_TIME = 'end_time'
-        TASK_START_TIME = 'start_time'
-        TASK_CREATE_TIME = 'create_time'
+        ERROR_MESSAGE = 'error_message'
 
     class SCHEDULE(FrozenClass):
         DEFAULT_SCHEDULE_TIME = 'DEFAULT_SCHEDULE_TIME'
@@ -102,7 +107,7 @@ class DefaultValues:
         TIME_FMT = '%Y%m%d%H%M%S'
 
     class TASK(FrozenClass):
-        TASK_WEIGHT = 1
+        WEIGHT = 1
 
     class SCHEDULE(FrozenClass):
         SCHEDULE_TIME = 10

@@ -7,7 +7,7 @@ from astraflux.definitions.constants import *
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
 
 
-def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.TASK_WEIGHT) -> str:
+def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str:
     """
     Submit a task to the database (persist only, no message queue dispatch).
 
@@ -23,7 +23,7 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
     Args:
         queue_name (str): Target queue name (maps to a running service).
         task_data (TaskData): Business-related task data (e.g., {"param1": "value1", "param2": 123}).
-        weight (int, optional): Task priority weight. Defaults to `TASK.DEFAULT_VALUE_TASK_WEIGHT` (1).
+        weight (int, optional): Task priority weight. Defaults to `DefaultValues.TASK.WEIGHT` (1).
 
     Returns:
         str: Unique ID of the submitted task (stored in the database).
@@ -34,7 +34,7 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
     return task_submit_to_db(queue_name, task_data, weight)
 
 
-def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.TASK_WEIGHT) -> str:
+def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str:
     """
     Submit a task to the database and dispatch to RabbitMQ (triggers execution).
 
@@ -48,7 +48,7 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
     Args:
         queue_name (str): Target queue name (must have a running service/worker).
         task_data (TaskData): Business-related task data (e.g., {"action": "send_email", "recipient": "user@example.com"}).
-        weight (int, optional): Task priority weight. Defaults to `TASK.DEFAULT_VALUE_TASK_WEIGHT` (1).
+        weight (int, optional): Task priority weight. Defaults to `DefaultValues.TASK.WEIGHT` (1).
 
     Returns:
         str: Unique ID of the submitted task (stored in DB and sent to MQ).
@@ -169,3 +169,73 @@ def task_status_get_from_redis(task_id: str) -> Optional[str]:
 
     """
     return task_status_get_from_redis(task_id)
+
+
+def update_service(query: dict, update_data: dict, upsert: bool = True):
+    """
+      Update service information in the MongoDB service collection.
+
+      This function provides an interface to update existing service records
+      or create new ones if they don't exist. It's commonly used for:
+      - Updating service status and health information
+      - Modifying service configuration parameters
+      - Tracking service instance lifecycle changes
+
+      Args:
+          query (dict): MongoDB query filter to select the service document(s) to update.
+
+          update_data (dict): The data to update in the matched service document(s).
+                             Can include both field updates and operations like $set, $push, etc.
+
+          upsert (bool, optional): If True, creates a new document when no document matches the query.
+                                  Defaults to True to prevent accidental document creation.
+
+      Returns:
+          None: This function doesn't return any value but may raise exceptions on database errors.
+
+      Raises:
+          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
+          ValueError: If query or update_data parameters are invalid.
+      """
+    return update_service(query, update_data, upsert)
+
+
+def update_task(query: dict, update_data: dict, upsert: bool = True):
+    """
+      Update task information in the MongoDB task collection.
+
+      This function provides an interface to update existing task records
+      or create new ones if they don't exist. It's commonly used for:
+      - Updating task status and health information
+      - Modifying task configuration parameters
+      - Tracking task instance lifecycle changes
+
+      Args:
+          query (dict): MongoDB query filter to select the task document(s) to update.
+
+          update_data (dict): The data to update in the matched task document(s).
+                             Can include both field updates and operations like $set, $push, etc.
+
+          upsert (bool, optional): If True, creates a new document when no document matches the query.
+                                  Defaults to True to prevent accidental document creation.
+
+      Returns:
+          None: This function doesn't return any value but may raise exceptions on database errors.
+
+      Raises:
+          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
+          ValueError: If query or update_data parameters are invalid.
+      """
+    return update_task(query, update_data, upsert)
+
+
+def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
+    """
+    Update running worker information in the MongoDB worker collection.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+        pid: worker pid
+        action: push / pull
+    """
+    return update_running_worker(name, ipaddr, pid, action)

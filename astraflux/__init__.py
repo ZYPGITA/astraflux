@@ -31,6 +31,8 @@ from astraflux.interface import *
 
 class AstraFlux(object):
     _instance = None
+    _yaml_file = None
+    _current_dir = None
 
     def __init__(self, yaml_file: str, current_dir: str):
         """
@@ -38,6 +40,8 @@ class AstraFlux(object):
         :param current_dir: workspace path
         """
         if not hasattr(self, '_initialized'):
+            self._yaml_file = yaml_file
+            self._current_dir = current_dir
             init_global_vars(yaml_file=yaml_file, current_dir=current_dir, root_path=_ROOT_DIR)
 
             _initialized = True
@@ -55,3 +59,10 @@ class AstraFlux(object):
             cls._instance.__init__(*args, **kwargs)
 
         return cls._instance
+
+    @staticmethod
+    def registry(services: list):
+        services_registry(services=services)
+
+    def run(self):
+        services_start(yaml_config=self._yaml_file)

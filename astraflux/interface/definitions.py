@@ -1,5 +1,19 @@
 # -*- encoding: utf-8 -*-
 
+def set_root_path(root_path: str):
+    """
+    Sets the root directory for the global variables.
+    :param root_path: The root directory for the global variables.
+    """
+    return set_root_path(root_path)
+
+
+def get_root_path():
+    """
+    Gets the root directory for the global variables.
+    """
+    return get_current_dir()
+
 
 def set_current_dir(current_dir: str):
     """

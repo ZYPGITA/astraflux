@@ -58,7 +58,7 @@ def _create_queue(queue: str):
     _channel = _mq_channel()
     while True:
         try:
-            _channel.queue_declare(queue=queue)
+            _channel.queue_declare(queue=queue, durable=True)
             break
         except Exception as e:
             try:
@@ -67,7 +67,7 @@ def _create_queue(queue: str):
 
                 _channel = _mq_channel()
                 _MQ_CHANNEL = _channel
-                _channel.queue_declare(queue=queue)
+                _channel.queue_declare(queue=queue, durable=True)
                 break
             except Exception as e:
                 print('create_queue name == ', queue, ' error == ', e)

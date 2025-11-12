@@ -2,7 +2,7 @@
 
 import time
 import pika
-import pickle
+import dill
 import builtins
 from pika.exceptions import ChannelClosed
 
@@ -140,7 +140,7 @@ class RpcClient:
 
     def _on_response(self, ch, method, props, body):
         if self.corr_id == props.correlation_id:
-            self.response = pickle.loads(body)
+            self.response = dill.loads(body)
 
     def call(self, service_name, method_name, *args, **kwargs):
         """
@@ -174,7 +174,7 @@ class RpcClient:
                 correlation_id=self.corr_id,
                 delivery_mode=2
             ),
-            body=pickle.dumps(request)
+            body=dill.dumps(request)
         )
 
         start_time = time.time()
