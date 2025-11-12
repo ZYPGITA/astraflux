@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 import pika
-import pickle
+import dill
 from functools import wraps
 
 from astraflux.definitions.constants import *
@@ -55,7 +55,7 @@ def _start_consumer(queue_name, service_instance):
     def callback(ch, method_frame, props, body):
         response = None
         try:
-            data = pickle.loads(body)
+            data = dill.loads(body)
             method_name = data['method']
             args = data.get('args', [])
             kwargs = data.get('kwargs', {})
@@ -65,12 +65,12 @@ def _start_consumer(queue_name, service_instance):
 
             method = getattr(service_instance, method_name)
             result = method(*args, **kwargs)
-            response = pickle.dumps({
+            response = dill.dumps({
                 'status': 'success',
                 'result': result
             })
         except Exception as e:
-            response = pickle.dumps({
+            response = dill.dumps({
                 'status': 'error',
                 'exception': str(e),
                 'type': type(e).__name__

@@ -3,21 +3,28 @@
 import os
 from astraflux import *
 
-os_dir = os.path.dirname(__file__)
-af = AstraFlux('config.yaml', os_dir)
+current_dir = os.path.dirname(__file__)
+af = AstraFlux(yaml_file=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-loguru().info(f'current_dir == {current_dir()}')
+message = {'task_id': snowflake_id(), 'status': 'wait', 'name': 'xxxx'}
 
-if __name__ == '__main__':
-    for i in range(10):
-        message = {'task_id': snowflake_id(), 'status': TASK.KEY_TASK_STOP_STATUS, 'name': 'xxxx'}
-        task_submit_databases(queue='test_server', message=message)
+task_submit_to_db_and_mq(
+    queue_name='test_server',
+    task_data=message,
+    weight=1
+)
 
-    d = proxy_call(
-        service_name='test_server',
-        method_name='test_func',
 
-        # 函数入参
-        a=1, b=2
-    )
-    print(d)
+# d = proxy_call(
+#     service_name='test_server',
+#     method_name='test_func',
+#     x=1, y=2
+# )
+# print(d)
+
+# remote_call(
+#     service_name='test_service_1',
+#     method_name='add_x_y',
+#     x=1, y=2
+# )
+

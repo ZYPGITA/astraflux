@@ -7,6 +7,9 @@ import json
 import argparse
 import multiprocessing
 
+from astraflux.definitions.constants import *
+from astraflux.core.build import Build
+
 
 class TaskExecutor:
     """
@@ -29,6 +32,8 @@ class TaskExecutor:
             current_dir: Current working directory
             root_path: Root application directory
         """
+        from astraflux.interface.data_access import update_running_worker
+
         # Initialize global environment for this task
         init_global_vars(
             yaml_file=yaml_config,
@@ -101,6 +106,8 @@ class TaskExecutor:
             worker_pid: Worker process ID
             status: New task status
         """
+        from astraflux.interface.data_access import update_task
+
         current_time = get_converted_time()
         update_data = {
             DEFINITIONS.BUILD.WORKER_PID: worker_pid,
@@ -215,6 +222,8 @@ class MessageQueueHandler:
         Returns:
             Boolean indicating if task should be executed
         """
+        from astraflux.interface.data_access import task_status_get_from_redis
+
         # System services always execute
         if DEFINITIONS.SYSTEM_SERVICE_NAME in self.worker_name:
             return True
@@ -232,6 +241,8 @@ class MessageQueueHandler:
         Returns:
             Boolean indicating if worker has available capacity
         """
+        from astraflux.interface.data_access import worker_get_running_and_max_count
+
         current_workers, max_workers = worker_get_running_and_max_count(
             query={
                 DEFINITIONS.BUILD.WORKER_NAME: self.worker_name,
@@ -309,7 +320,7 @@ class WorkerComponentLauncher:
         worker_registration_data = {
             DEFINITIONS.BUILD.NAME: worker_component.name,
             DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
-            DEFINITIONS.BUILD.WORKER_NAME: worker_component.name,
+            DEFINITIONS.BUILD.WORKER_NAME: worker_component.worker_name,
             DEFINITIONS.BUILD.WORKER_VERSION: worker_component.version,
             DEFINITIONS.BUILD.WORKER_PID: os.getpid(),
             DEFINITIONS.BUILD.WORKER_FUNCTIONS: worker_component.functions,
@@ -317,10 +328,12 @@ class WorkerComponentLauncher:
             DEFINITIONS.BUILD.WORKER_RUN_PROCESS: [],
         }
 
+        from astraflux.interface.data_access import update_service
+
         update_service(
             query={
                 DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
-                DEFINITIONS.BUILD.WORKER_NAME: worker_component.name
+                DEFINITIONS.BUILD.WORKER_NAME: worker_component.worker_name
             },
             update_data=worker_registration_data,
             upsert=True
@@ -344,19 +357,21 @@ class WorkerComponentLauncher:
             root_path=args.root_path,
             logger=worker_component.logger,
             ipaddr=worker_component.ipaddr,
-            worker_name=worker_component.name
+            worker_name=worker_component.worker_name
         )
+
+        from astraflux.interface.rabbitmq import rabbitmq_receive_message
 
         # Main message processing loop with error handling
         while True:
             try:
                 rabbitmq_receive_message(
-                    queue=worker_component.name,
+                    queue=worker_component.worker_name,
                     callback=message_handler.handle_incoming_message
                 )
             except Exception as connection_error:
                 worker_component.logger.error(
-                    f'Worker {worker_component.name} connection error: {connection_error}'
+                    f'Worker {worker_component.worker_name} connection error: {connection_error}'
                 )
                 time.sleep(0.5)  # Prevent tight loop on persistent errors
 
@@ -382,15 +397,8 @@ if __name__ == '__main__':
     sys.path.append(args.root_path)
 
     from astraflux.inject import inject_init
-    from astraflux.definitions.constants import *
     from astraflux.interface.core import WorkerConstructor, init_global_vars
-    from astraflux.interface.data_access import (
-        update_task, update_running_worker, task_status_get_from_redis,
-        worker_get_running_and_max_count, update_service
-    )
     from astraflux.interface.utils import get_converted_time
-    from astraflux.interface.rabbitmq import rabbitmq_receive_message
-    from astraflux.core.build import Build
 
     # Initialize dependency injection system
     inject_init(root_path=args.root_path)

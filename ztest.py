@@ -20,10 +20,12 @@ logger.info(snowflake_id())
 logger.info(get_converted_time())
 logger.info(get_ipaddr())
 
+
 af.registry(services=[test_server])
 af.run()
 
 time.sleep(1000)
+
 
 # executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
 #

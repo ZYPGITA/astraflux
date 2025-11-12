@@ -53,7 +53,8 @@ class ServiceComponentLauncher:
         # Start RPC server to handle incoming requests
         self._start_rpc_server(service_component)
 
-    def _prepare_service_data(self, service_component) -> dict:
+    @staticmethod
+    def _prepare_service_data(service_component) -> dict:
         """
         Prepare service data for registration in discovery system.
 
@@ -66,17 +67,18 @@ class ServiceComponentLauncher:
         return {
             DEFINITIONS.BUILD.NAME: service_component.name,
             DEFINITIONS.BUILD.SERVICE_IPADDR: service_component.ipaddr,
-            DEFINITIONS.BUILD.SERVICE_NAME: service_component.name,
+            DEFINITIONS.BUILD.SERVICE_NAME: service_component.service_name,
             DEFINITIONS.BUILD.SERVICE_VERSION: service_component.version,
             DEFINITIONS.BUILD.SERVICE_PID: os.getpid(),
             DEFINITIONS.BUILD.SERVICE_FUNCTIONS: service_component.functions,
 
             # Initialize worker attributes for service discovery
             DEFINITIONS.BUILD.WORKER_IPADDR: service_component.ipaddr,
-            DEFINITIONS.BUILD.WORKER_NAME: service_component.name
+            DEFINITIONS.BUILD.WORKER_NAME: service_component.service_name
         }
 
-    def _register_service_in_discovery(self, service_component, service_data: dict):
+    @staticmethod
+    def _register_service_in_discovery(service_component, service_data: dict):
         """
         Register service in the service discovery database.
 
@@ -87,13 +89,14 @@ class ServiceComponentLauncher:
         update_service(
             query={
                 DEFINITIONS.BUILD.SERVICE_IPADDR: service_component.ipaddr,
-                DEFINITIONS.BUILD.SERVICE_NAME: service_component.name
+                DEFINITIONS.BUILD.SERVICE_NAME: service_component.service_name
             },
             update_data=service_data,
             upsert=True  # Create if doesn't exist
         )
 
-    def _start_rpc_server(self, service_component):
+    @staticmethod
+    def _start_rpc_server(service_component):
         """
         Start the RPC server to handle remote procedure calls.
 

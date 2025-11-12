@@ -23,6 +23,9 @@ class Constructor(object):
 
 class ServiceConstructor(abc.ABC, Constructor):
 
+    @property
+    def service_name(self) -> get_logger: return
+
     @classmethod
     def setattr(cls, name, value):
         setattr(cls, name, value)
@@ -33,7 +36,9 @@ class ServiceConstructor(abc.ABC, Constructor):
 
 class WorkerConstructor(abc.ABC, Constructor):
 
-    @abc.abstractmethod
+    @property
+    def worker_name(self) -> get_logger: return
+
     def run(self, data): ...
 
     @classmethod

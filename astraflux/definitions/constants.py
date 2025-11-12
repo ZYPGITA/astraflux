@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-from enum import Enum
 
 PROJECT_VERSION = '2.0'
 PROJECT_NAME = 'astraflux'
@@ -17,7 +16,7 @@ class FrozenClass:
 class DEFINITIONS:
     SYSTEM_SERVICE_NAME = 'proxy_system_server'
 
-    class STATUS(Enum):
+    class STATUS(FrozenClass):
         PENDING = "pending"
         RUNNING = "running"
         SUCCESS = "success"
