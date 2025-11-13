@@ -64,5 +64,5 @@ class AstraFlux(object):
     def registry(services: list):
         services_registry(services=services)
 
-    def run(self):
+    def start(self):
         services_start(yaml_config=self._yaml_file)

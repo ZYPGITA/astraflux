@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-
+import time
 from typing import Dict, List, Tuple, Optional, TypeVar, Any
 
 from astraflux.definitions.constants import *
@@ -57,9 +57,15 @@ def _is_queue_service_running(queue_name: str) -> bool:
     """
 
     _service_collector = mongodb_get_service_collector()
+    count = 0
 
-    service_count = _service_collector.count(query={DEFINITIONS.BUILD.SERVICE_NAME: queue_name})
-    return service_count > 0
+    while count < 10:
+        service_count = _service_collector.count(query={DEFINITIONS.BUILD.SERVICE_NAME: queue_name})
+        if service_count > 0:
+            return True
+        count += 1
+        time.sleep(0.5)
+    return False
 
 
 def _build_task_full_data(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) \
@@ -465,6 +471,150 @@ def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'
         _service_collector.array_pull(query=query, data=data)
 
 
+def task_find_paginated(
+        query: Dict[str, Any],
+        fields: Optional[Dict[str, Any]] = None,
+        limit: int = 10,
+        skip: int = 0,
+        sort_field: str = 'create_time',
+        sort_order: int = -1
+) -> Tuple[int, List[Dict[str, Any]]]:
+    """
+    Performs a paginated query on the task collection to retrieve filtered task records with pagination support.
+
+    This function provides a convenient wrapper for paginated data retrieval from the task database collection.
+    It supports filtering via a query dictionary, field projection to select specific fields, result limiting,
+    offset-based pagination (skip), and customizable sorting. The return value includes both the total count
+    of matching records (for pagination metadata) and the list of tasks for the current page.
+
+    Args:
+        query: A MongoDB query filter dictionary to specify which tasks to retrieve.
+            Example: {"status": "completed", "priority": {"$gte": 2}}
+            (Follows MongoDB query syntax: https://www.mongodb.com/docs/manual/tutorial/query-documents/)
+        fields: Optional projection dictionary to specify which fields to include/exclude in the result.
+            - Include fields: {"_id": 1, "name": 1, "status": 1}
+            - Exclude fields: {"_id": 0, "description": 0}
+            Defaults to None, which returns all fields.
+        limit: Maximum number of task records to return per page. Must be a non-negative integer.
+            Defaults to 10. Use 0 with caution (may return all matching records if allowed by the collection).
+        skip: Number of task records to skip before returning results (for offset-based pagination).
+            Defaults to 0 (starts from the first matching record). Use cautiously with large values (can impact performance).
+        sort_field: Name of the field to sort the results by. Must be a valid field in the task collection.
+            Defaults to 'create_time' (common use case for chronological sorting).
+        sort_order: Sort direction. Use 1 for ascending order (A→Z, oldest→newest) and -1 for descending order (Z→A, newest→oldest).
+            Defaults to -1 (descending order, e.g., newest tasks first when sorting by 'create_time').
+
+    Returns:
+        A tuple containing two elements:
+            1. Total count (int): Number of task records that match the query (across all pages).
+            2. Task list (List[Dict[str, Any]]): List of task records for the current page, formatted as dictionaries
+               (each dictionary represents a task with selected fields).
+
+    Dependencies:
+        - Relies on the `mongodb_get_task_collector()` function to retrieve the MongoDB task collection instance.
+        - The task collection must implement a `find_paginated()` method that accepts the same parameters
+          and returns the (total_count, results_list) tuple.
+
+    Example Usage:
+        # Get 20 completed tasks (page 2, 10 per page), sorted by priority (high to low), include specific fields
+        query = {"status": "completed"}
+        fields = {"_id": 1, "name": 1, "priority": 1, "completed_at": 1}
+        total_tasks, current_page_tasks = task_find_paginated(
+            query=query,
+            fields=fields,
+            limit=20,
+            skip=20,  # Skip first 20 tasks (page 1), get page 2
+            sort_field="priority",
+            sort_order=-1
+        )
+        print(f"Total completed tasks: {total_tasks}")
+        print(f"Page 2 tasks: {current_page_tasks}")
+
+    Notes:
+        - For large collections, consider using cursor-based pagination instead of offset-based (skip) for better performance.
+        - Ensure the `sort_field` is indexed in the MongoDB collection to optimize sorting performance.
+        - The `fields` parameter follows MongoDB projection rules (cannot mix include/exclude except for _id).
+    """
+    _task_collector = mongodb_get_task_collector()
+
+    return _task_collector.find_paginated(
+        query=query,
+        fields=fields,
+        limit=limit,
+        skip=skip,
+        sort_field=sort_field,
+        sort_order=sort_order
+    )
+
+
+def find_services(
+        query: Dict[str, Any],
+        fields: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves a list of service records from the MongoDB service collection based on the specified query and field projection.
+
+    This function acts as a wrapper for MongoDB's find operation on the service collection, providing a clean,
+    reusable interface to fetch service data. It supports filtering results with a query dictionary and selecting
+    specific fields to include or exclude, adhering to MongoDB's query and projection syntax.
+
+    Args:
+        query: A MongoDB-compatible filter dictionary to specify which service records to retrieve.
+            Defines conditions that services must satisfy to be included in the result.
+            Example 1: Fetch active services → {"status": "active"}
+            Example 2: Fetch services with specific tags → {"tags": {"$in": ["api", "microservice"]}}
+            Example 3: Fetch services created after a date → {"created_at": {"$gt": datetime(2024, 1, 1)}}
+            For full syntax: https://www.mongodb.com/docs/manual/tutorial/query-documents/
+
+        fields: Optional projection dictionary to control which fields are included in the returned service records.
+            - Include specific fields (explicitly set to 1, _id is included by default):
+              {"_id": 1, "name": 1, "host": 1, "port": 1}
+            - Exclude specific fields (explicitly set to 0, cannot mix with include except for _id):
+              {"_id": 0, "internal_metadata": 0, "credentials": 0}
+            Defaults to None, which returns all fields of matching service records.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, where each dictionary represents a service record that matches
+        the query. Each dictionary contains key-value pairs corresponding to the service's fields (filtered by the
+        `fields` parameter if provided). Returns an empty list if no services match the query.
+
+    Dependencies:
+        - Requires the `mongodb_get_service_collector()` helper function, which must return a valid MongoDB collection
+          instance for the service data store (handles connection pooling, authentication, and collection selection).
+        - The underlying MongoDB collection must support the `find()` method with standard query and projection parameters.
+
+    Example Usage:
+        # 1. Fetch all active services, including only name, host, and port
+        active_services = find_services(
+            query={"status": "active"},
+            fields={"name": 1, "host": 1, "port": 1}
+        )
+        print("Active services:", active_services)
+
+        # 2. Fetch services with type "database" and exclude internal metadata
+        db_services = find_services(
+            query={"type": "database"},
+            fields={"_id": 1, "name": 1, "type": 1, "internal_metadata": 0}
+        )
+        print("Database services:", db_services)
+
+        # 3. Fetch all services (no filter), return all fields
+        all_services = find_services(query={})
+        print("All services count:", len(all_services))
+
+    Notes:
+        - Field projection rules: MongoDB does not allow mixing inclusion (1) and exclusion (0) except for the _id field.
+          For example: {"name": 1, "host": 0} is invalid, but {"_id": 0, "name": 1} is valid.
+        - For large result sets, consider adding pagination (limit/skip) or cursor-based iteration to avoid memory issues.
+        - Ensure frequently queried fields (e.g., "status", "type") are indexed in MongoDB for improved performance.
+        - The function does not handle exceptions (e.g., database connection errors, invalid query syntax) —
+          error handling should be implemented at the call site if needed.
+    """
+
+    service_collection = mongodb_get_service_collector()
+    return list(service_collection.find(query=query, fields=fields))
+
+
 def register():
     import sys
     from astraflux.interface import data_access
@@ -478,6 +628,8 @@ def register():
     data_access.update_service = update_service
     data_access.update_task = update_task
     data_access.update_running_worker = update_running_worker
+    data_access.task_find_paginated = task_find_paginated
+    data_access.find_services = find_services
 
     if REPLACE_SYS_MODULE:
         sys.modules['astraflux.interface.data_access'] = data_access

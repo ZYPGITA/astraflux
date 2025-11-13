@@ -1,0 +1,574 @@
+# -*- encoding: utf-8 -*-
+
+import time
+import pytz
+import dill
+import threading
+import multiprocessing
+from pymongo import MongoClient
+from threading import Thread, Event
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Callable, Optional
+
+from astraflux.definitions.constants import *
+from astraflux.interface.logger import get_logger
+from astraflux.interface.utils import get_ipaddr
+from astraflux.interface.definitions import get_mongo_uri
+
+from .cron_scheduler import AdvancedCronScheduler
+
+
+class UniversalScheduler:
+    """
+    Universal distributed scheduler with high precision cron scheduling and MongoDB-based coordination
+    Features:
+    - Second-level precision scheduling
+    - Distributed locking to prevent duplicate execution
+    - Support for both thread and process execution
+    - IP-based job routing
+    - Automatic lock refresh and cleanup
+    - Generic design for any type of scheduled job
+    """
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(UniversalScheduler, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        if getattr(self, '_initialized', False):
+            return
+
+        self.logger = get_logger(filename=PROJECT_NAME, task_id='UniversalScheduler')
+        self.local_ip = get_ipaddr()
+
+        self._scheduler_active = Event()
+        self._scheduler_thread = None
+
+        self._lock_refresh_interval = 5
+        self._lock_expire_seconds = 15
+        self._active_lock_refreshers: Dict[str, Event] = {}
+        self._lock_management_lock = threading.RLock()
+
+        self._execution_stats = {
+            'jobs_executed': 0,
+            'jobs_failed': 0,
+            'lock_acquisitions': 0,
+            'lock_failures': 0
+        }
+        self._init_database_connections()
+
+        self._initialized = True
+
+    def _init_database_connections(self) -> None:
+        """Initialize MongoDB connections with error handling"""
+        try:
+            self._mongo_client = MongoClient(
+                get_mongo_uri(),
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                socketTimeoutMS=5000
+            )
+
+            self._mongo_client.admin.command('ismaster')
+
+            self._database = self._mongo_client[PROJECT_NAME]
+            self._scheduled_jobs = self._database.scheduled_jobs
+            self._job_locks = self._database.job_locks
+
+            self._scheduled_jobs.create_index("next_execution_time")
+            self._scheduled_jobs.create_index("enabled")
+            self._job_locks.create_index("expire_at", expireAfterSeconds=self._lock_expire_seconds)
+            self._job_locks.create_index("job_id", unique=True)
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize database connections: {str(e)}")
+            raise
+
+    def start_scheduler(self) -> None:
+        """
+        Start the distributed job scheduler
+        """
+        if self._scheduler_active.is_set():
+            self.logger.warning("Scheduler is already running")
+            return
+
+        self._scheduler_active.set()
+        self._scheduler_thread = Thread(
+            target=self._scheduling_loop,
+            name="UniversalScheduler",
+            daemon=True
+        )
+        self._scheduler_thread.start()
+        self.logger.info("Universal scheduler started successfully")
+
+    def stop_scheduler(self) -> None:
+        """
+        Stop the scheduler and cleanup resources
+        """
+        if not self._scheduler_active.is_set():
+            self.logger.warning("Scheduler is not running")
+            return
+
+        self.logger.info("Stopping distributed job scheduler...")
+        self._scheduler_active.clear()
+
+        # Wait for scheduler thread to finish
+        if self._scheduler_thread and self._scheduler_thread.is_alive():
+            self._scheduler_thread.join(timeout=10.0)
+            if self._scheduler_thread.is_alive():
+                self.logger.warning("Scheduler thread did not terminate gracefully")
+
+        # Stop all lock refresh threads
+        self._stop_all_lock_refreshers()
+        self.logger.info("Distributed job scheduler stopped successfully")
+
+    def _scheduling_loop(self) -> None:
+        """
+        Main scheduling loop that checks for due jobs
+        """
+        self.logger.info("Scheduling loop started")
+
+        while self._scheduler_active.is_set():
+            try:
+                current_time = datetime.now(pytz.utc)
+
+                # Find jobs that are due for execution
+                due_jobs = self._find_due_jobs(current_time)
+
+                # Execute due jobs
+                for job in due_jobs:
+                    if self._scheduler_active.is_set():
+                        self._execute_job_if_eligible(job)
+                    else:
+                        break
+
+                # Sleep with small intervals for responsive shutdown
+                for _ in range(10):
+                    if not self._scheduler_active.is_set():
+                        break
+                    time.sleep(0.1)
+
+            except Exception as e:
+                self.logger.error(f"Error in scheduling loop: {str(e)}")
+                self._execution_stats['jobs_failed'] += 1
+                time.sleep(5)
+
+    def _find_due_jobs(self, current_time: datetime) -> List[Dict]:
+        """
+        Find jobs that are due for execution with efficient query
+        """
+        try:
+            return list(self._scheduled_jobs.find({
+                "enabled": True,
+                "next_execution_time": {"$lte": current_time}
+            }).sort("next_execution_time", 1))
+        except Exception as e:
+            self.logger.error(f"Failed to query due jobs: {str(e)}")
+            return []
+
+    def _execute_job_if_eligible(self, job: Dict) -> None:
+        """
+        Execute job if it meets all eligibility criteria
+        """
+        job_id = job["_id"]
+
+        # Check IP restriction
+        if not self._is_job_allowed_on_current_ip(job):
+            self.logger.debug(f"Job {job_id} skipped - IP restriction")
+            return
+
+        # Acquire distributed lock
+        if not self._acquire_job_lock(job_id):
+            self.logger.debug(f"Job {job_id} skipped - lock acquisition failed")
+            return
+
+        try:
+            # Execute the job
+            self._execute_job_with_lock_protection(job)
+
+        except Exception as e:
+            self.logger.error(f"Job execution failed: {job_id} - {str(e)}")
+            self._execution_stats['jobs_failed'] += 1
+            self._cleanup_after_job_failure(job_id)
+
+    def _is_job_allowed_on_current_ip(self, job: Dict) -> bool:
+        """Check if job is allowed to run on current IP"""
+        allowed_ips = job.get("allowed_ips", [])
+        return not allowed_ips or self.local_ip in allowed_ips
+
+    def _acquire_job_lock(self, job_id: str) -> bool:
+        """
+        Acquire distributed lock for job execution with atomic operation (fixed duplicate key issue)
+        """
+        try:
+            lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
+            current_time = datetime.now(pytz.utc)
+
+            result = self._job_locks.find_one_and_update(
+                {
+                    "job_id": job_id,
+                    "expire_at": {"$lt": current_time}
+                },
+                {
+                    "$set": {
+                        "expire_at": lock_expiry,
+                        "locked_at": current_time,
+                        "locked_by": self.local_ip
+                    }
+                },
+                upsert=True,
+                return_document=True
+            )
+
+            acquired = result is not None
+            if acquired:
+                self._execution_stats['lock_acquisitions'] += 1
+                self.logger.debug(f"Lock acquired for job: {job_id}")
+            else:
+                self._execution_stats['lock_failures'] += 1
+
+            return acquired
+
+        except Exception as e:
+            self.logger.error(f"Lock acquisition failed for job {job_id}: {str(e)}")
+            self._execution_stats['lock_failures'] += 1
+            return False
+
+    def _execute_job_with_lock_protection(self, job: Dict) -> None:
+        """
+        Execute job with proper lock management and error handling
+        """
+        job_id = job["_id"]
+
+        try:
+            self._start_lock_refresh_thread(job_id)
+
+            self._execute_job_function(job)
+
+            self._update_job_schedule(job)
+
+            self._execution_stats['jobs_executed'] += 1
+            self.logger.info(f"Job executed successfully: {job_id}")
+
+        finally:
+            # Always stop lock refresh and cleanup
+            self._stop_lock_refresh_thread(job_id)
+
+    def _execute_job_function(self, job: Dict) -> None:
+        """Execute the actual job function"""
+        try:
+            function = dill.loads(job["function_data"])
+            execution_type = job.get("execution_type", "thread")
+            args = job.get("arguments", [])
+            kwargs = job.get("keyword_arguments", {})
+
+            if execution_type == "process":
+                self._execute_in_process(function, args, kwargs, job["_id"])
+            else:
+                self._execute_in_thread(function, args, kwargs, job["_id"])
+
+        except Exception as e:
+            self.logger.error(f"Job function execution failed {job['_id']}: {str(e)}")
+            raise
+
+    def _execute_in_thread(self, function: Callable, args: List, kwargs: Dict, job_id: str) -> None:
+        """Execute job in a separate thread"""
+
+        def thread_wrapper():
+            try:
+                function(*args, **kwargs)
+            except Exception as e:
+                self.logger.error(f"Thread execution failed for job {job_id}: {str(e)}")
+                raise
+
+        thread = Thread(target=thread_wrapper, name=f"JobThread-{job_id}", daemon=True)
+        thread.start()
+        thread.join()
+
+    def _execute_in_process(self, function: Callable, args: List, kwargs: Dict, job_id: str) -> None:
+        """Execute job in a separate process"""
+
+        def process_wrapper():
+            try:
+                function(*args, **kwargs)
+            except Exception as e:
+                self.logger.error(f"Process execution failed for job {job_id}: {str(e)}")
+                import sys
+                sys.exit(1)
+
+        process = multiprocessing.Process(
+            target=process_wrapper,
+            name=f"JobProcess-{job_id}",
+            daemon=True
+        )
+        process.start()
+        process.join()
+
+    def _update_job_schedule(self, job: Dict) -> None:
+        """Calculate and update next execution time"""
+        try:
+            cron_scheduler = AdvancedCronScheduler(
+                cron_expression=job["cron_expression"],
+                timezone=job.get("timezone", "UTC")
+            )
+            next_execution = cron_scheduler.get_next_execution_time()
+
+            self._scheduled_jobs.update_one(
+                {"_id": job["_id"]},
+                {
+                    "$set": {
+                        "next_execution_time": next_execution,
+                        "last_execution_time": datetime.now(pytz.utc),
+                        "last_execution_ip": self.local_ip
+                    }
+                }
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to update job schedule {job['_id']}: {str(e)}")
+            raise
+
+    def _start_lock_refresh_thread(self, job_id: str) -> None:
+        """Start background thread to refresh job lock"""
+        stop_event = Event()
+        refresh_thread = Thread(
+            target=self._lock_refresh_worker,
+            args=(job_id, stop_event),
+            name=f"LockRefresh-{job_id}",
+            daemon=True
+        )
+
+        with self._lock_management_lock:
+            self._active_lock_refreshers[job_id] = stop_event
+
+        refresh_thread.start()
+
+    def _stop_lock_refresh_thread(self, job_id: str) -> None:
+        """Stop lock refresh thread and cleanup"""
+        with self._lock_management_lock:
+            stop_event = self._active_lock_refreshers.pop(job_id, None)
+            if stop_event:
+                stop_event.set()
+
+    def _stop_all_lock_refreshers(self) -> None:
+        """Stop all active lock refresh threads"""
+        with self._lock_management_lock:
+            for job_id, stop_event in list(self._active_lock_refreshers.items()):
+                stop_event.set()
+            self._active_lock_refreshers.clear()
+
+    def _lock_refresh_worker(self, job_id: str, stop_event: Event) -> None:
+        """Background worker to keep job lock alive during execution"""
+        self.logger.debug(f"Lock refresh started for job: {job_id}")
+
+        while not stop_event.is_set():
+            try:
+                lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
+
+                result = self._job_locks.update_one(
+                    {"job_id": job_id},
+                    {"$set": {"expire_at": lock_expiry}}
+                )
+
+                if result.matched_count == 0:
+                    self.logger.warning(f"Lock not found during refresh for job: {job_id}")
+                    break
+
+            except Exception as e:
+                self.logger.error(f"Lock refresh failed for job {job_id}: {str(e)}")
+                break
+
+            for _ in range(self._lock_refresh_interval * 2):
+                if stop_event.is_set():
+                    break
+                time.sleep(0.5)
+
+        self._cleanup_job_lock(job_id)
+        self.logger.debug(f"Lock refresh stopped for job: {job_id}")
+
+    def _cleanup_job_lock(self, job_id: str) -> None:
+        """Remove job lock with error handling"""
+        try:
+            self._job_locks.delete_one({"job_id": job_id})
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup lock for job {job_id}: {str(e)}")
+
+    def _cleanup_after_job_failure(self, job_id: str) -> None:
+        """Cleanup resources after job failure"""
+        self._stop_lock_refresh_thread(job_id)
+        self._cleanup_job_lock(job_id)
+
+    def add_scheduled_job(self, job_id: str, cron_expression: str, function: Callable,
+                          timezone: str = "UTC", arguments: Optional[List] = None,
+                          keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
+                          execution_type: str = "thread") -> bool:
+        """
+        Add a new scheduled job to the system
+
+        Args:
+            job_id: Unique identifier for the job
+            cron_expression: Cron expression for scheduling
+            function: Function to be executed
+            timezone: Timezone for schedule calculation
+            arguments: Positional arguments for the function
+            keyword_arguments: Keyword arguments for the function
+            allowed_ips: List of IP addresses allowed to execute this job
+            execution_type: 'thread' or 'process'
+
+        Returns:
+            Boolean indicating success
+        """
+        try:
+            if not self._validate_job_parameters(job_id, cron_expression, function, execution_type):
+                return False
+
+            if self._scheduled_jobs.find_one({"_id": job_id}):
+                self.logger.warning(f"Job '{job_id}' already exists")
+                return False
+
+            cron_scheduler = AdvancedCronScheduler(cron_expression, timezone=timezone)
+            next_execution = cron_scheduler.get_next_execution_time()
+
+            job_data = {
+                "_id": job_id,
+                "cron_expression": cron_expression,
+                "function_data": dill.dumps(function),
+                "timezone": timezone,
+                "arguments": arguments or [],
+                "keyword_arguments": keyword_arguments or {},
+                "enabled": True,
+                "next_execution_time": next_execution,
+                "last_execution_time": None,
+                "last_execution_ip": None,
+                "execution_type": execution_type,
+                "created_time": datetime.now(pytz.utc)
+            }
+
+            if allowed_ips is not None:
+                job_data["allowed_ips"] = allowed_ips
+
+            self._scheduled_jobs.insert_one(job_data)
+            self.logger.info(f"Job '{job_id}' added successfully")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to add job '{job_id}': {str(e)}")
+            return False
+
+    def _validate_job_parameters(self, job_id: str, cron_expression: str,
+                                 function: Callable, execution_type: str) -> bool:
+        """Validate job parameters before adding"""
+        if not job_id or not isinstance(job_id, str):
+            self.logger.error("Job ID must be a non-empty string")
+            return False
+
+        if not cron_expression:
+            self.logger.error("Cron expression cannot be empty")
+            return False
+
+        if not callable(function):
+            self.logger.error("Function must be callable")
+            return False
+
+        if execution_type not in ['thread', 'process']:
+            self.logger.error("Execution type must be 'thread' or 'process'")
+            return False
+
+        return True
+
+    def remove_scheduled_job(self, job_id: str) -> bool:
+        """
+        Remove a scheduled job from the system
+
+        Args:
+            job_id: ID of the job to remove
+
+        Returns:
+            Boolean indicating success
+        """
+        try:
+            result = self._scheduled_jobs.delete_one({"_id": job_id})
+
+            if result.deleted_count > 0:
+                self.logger.info(f"Job '{job_id}' removed successfully")
+                self._cleanup_job_lock(job_id)
+                return True
+            else:
+                self.logger.warning(f"Job '{job_id}' not found for removal")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Failed to remove job '{job_id}': {str(e)}")
+            return False
+
+    def get_execution_statistics(self) -> Dict[str, Any]:
+        """Get current execution statistics"""
+        return self._execution_stats.copy()
+
+
+def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
+                     timezone: str = "UTC", arguments: Optional[List] = None,
+                     keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
+                     execution_type: str = "thread") -> bool:
+    """
+    Schedule a job in the distributed scheduler
+
+    Args:
+        job_id: Unique identifier for the job
+        cron_expression: Cron expression for scheduling
+        function: Function to be executed
+        timezone: Timezone for schedule calculation
+        arguments: Positional arguments for the function
+        keyword_arguments: Keyword arguments for the function
+        allowed_ips: List of IP addresses allowed to execute this job
+        execution_type: 'thread' or 'process'
+
+    Returns:
+        Boolean indicating success
+    """
+    scheduler = UniversalScheduler()
+    return scheduler.add_scheduled_job(
+        job_id, cron_expression, function, timezone,
+        arguments, keyword_arguments, allowed_ips, execution_type
+    )
+
+
+def remove_scheduled_job(job_id: str) -> bool:
+    """
+    Remove a scheduled job from the distributed scheduler
+
+    Args:
+        job_id: ID of the job to remove
+
+    Returns:
+        Boolean indicating success
+    """
+    scheduler = UniversalScheduler()
+    return scheduler.remove_scheduled_job(job_id)
+
+
+def start_scheduler() -> None:
+    """Start the distributed scheduler"""
+    scheduler = UniversalScheduler()
+    scheduler.start_scheduler()
+
+
+def stop_scheduler() -> None:
+    """Stop the distributed scheduler"""
+    scheduler = UniversalScheduler()
+    scheduler.stop_scheduler()
+
+
+def register():
+    from astraflux.interface import scheduler
+    scheduler.add_schedule_job = add_schedule_job
+    scheduler.remove_scheduled_job = remove_scheduled_job
+    scheduler.start_scheduler = start_scheduler
+    scheduler.stop_scheduler = stop_scheduler
+
+    if REPLACE_SYS_MODULE:
+        import sys
+        sys.modules['astraflux.interface.scheduler'] = scheduler

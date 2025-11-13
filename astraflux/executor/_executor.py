@@ -37,7 +37,7 @@ class Task:
     kwargs: dict = None
     max_retries: int = 3
     retry_delay: float = 1.0
-    status: DEFINITIONS.STATUS = DEFINITIONS.STATUS.PENDING
+    status: str = DEFINITIONS.STATUS.PENDING
     retry_count: int = 0
     result: Any = None
     error: str = None
@@ -372,7 +372,7 @@ class ProcessPoolExecutorWithRetry:
         task_dict['func'] = dill.dumps(task.func)
         task_dict['args'] = dill.dumps(task.args)
         task_dict['kwargs'] = dill.dumps(task.kwargs)
-        task_dict['status'] = task.status.value  # Convert enum to string
+        task_dict['status'] = task.status  # Convert enum to string
         return task_dict
 
     @staticmethod
@@ -391,7 +391,7 @@ class ProcessPoolExecutorWithRetry:
         task_dict['func'] = dill.loads(task_dict['func'])
         task_dict['args'] = dill.loads(task_dict['args'])
         task_dict['kwargs'] = dill.loads(task_dict['kwargs'])
-        task_dict['status'] = DEFINITIONS.STATUS(task_dict['status'])  # Convert back to enum
+        task_dict['status'] = task_dict['status']  # Convert back to enum
         return Task(**task_dict)
 
     def submit(self, func: Callable, *args, max_retries: int = 3, **kwargs) -> int:

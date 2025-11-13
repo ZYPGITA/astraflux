@@ -5,7 +5,7 @@ from astraflux import *
 
 
 class RpcFunction(ServiceConstructor):
-    service_name = 'test_server'
+    service_name = 'sub_test_server'
 
     @rpc_decorator
     def get_service_name(self):
@@ -17,7 +17,7 @@ class RpcFunction(ServiceConstructor):
 
 
 class WorkerFunction(WorkerConstructor):
-    worker_name = 'test_server'
+    worker_name = 'sub_test_server'
 
     def run(self, data):
         self.logger.info(data)

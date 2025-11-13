@@ -5,7 +5,7 @@ import time
 
 from astraflux import *
 
-from servers.test_server import test_server
+from servers.test_server import test_server, sub_test_server
 
 current_dir = os.path.dirname(__file__)
 
@@ -20,21 +20,41 @@ logger.info(snowflake_id())
 logger.info(get_converted_time())
 logger.info(get_ipaddr())
 
+af.registry(services=[test_server, sub_test_server])
+af.start()
 
-af.registry(services=[test_server])
-af.run()
+executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
 
-time.sleep(1000)
+# add_schedule_job(
+#     job_id='1001',
+#     cron_expression='* * * * * *',
+#     function=test_func_2,
+#     keyword_arguments={'x': 2}
+# )
 
+# start_scheduler()
 
-# executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
+# for i in range(3):
+#     tid = snowflake_id()
 #
+#     task_submit_to_db(
+#         queue_name='test_server',
+#         task_data={'task_id': tid}
+#     )
 #
-# def test_func(x):
-#     while True:
-#         time.sleep(1)
-#         print(x)
+#     subtask_batch_create(
+#         source_task_id=tid,
+#         subtask_queue='sub_test_server',
+#         subtask_list=[{'task_id': f'{tid}_{j}'} for j in range(5)]
+#     )
 #
+# time.sleep(10)
+# from astraflux.workflows.task_distribution import TaskScheduler
+#
+# TaskScheduler().execute()
+#
+time.sleep(100)
+
 # executor.submit(test_func, 1)
 # executor.submit(test_func, 2)
 # executor.submit(test_func, 3)
@@ -44,20 +64,6 @@ time.sleep(1000)
 # executor.shutdown()
 
 
-# task_submit_to_db_and_mq(queue_name='test', task_data={'task_id': snowflake_id()})
-
-#
-# print(get_converted_time())
-#
-# loguru().info(f'current_dir == {current_dir()}')
-#
-# if __name__ == '__main__':
-#     from servers.test_server import test_server
-#
-#     af.registry(services=[test_server])
-#
-#     af.start()
-
 """
 pip install pika
 pip install pymongo
@@ -65,6 +71,7 @@ pip install redis
 pip install pytz
 pip install PyYAML
 pip install dill
+pip install psutil
 
 
 """

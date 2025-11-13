@@ -10,7 +10,10 @@ from typing import List, Callable
 
 from astraflux.definitions.constants import REPLACE_SYS_MODULE
 from astraflux.interface.definitions import get_current_dir, get_root_path
+from astraflux.interface.scheduler import add_schedule_job, start_scheduler
 from astraflux.interface.logger import get_logger
+
+from astraflux.workflows.task_distribution import TaskScheduler
 
 # Global constants
 _PYTHON_NAME = 'python'
@@ -162,6 +165,17 @@ class ServiceRegistry:
             )
             get_logger().info(f"Worker started with PID: {worker_pid}")
 
+    @staticmethod
+    def start_scheduler():
+        add_schedule_job(
+            job_id='TaskScheduler001',
+            cron_expression='*/10 * * * * *',
+            execution_type='thread',
+            function=TaskScheduler().execute,
+        )
+
+        start_scheduler()
+
 
 # Backward compatibility functions
 def services_registry(services: List[Callable]):
@@ -172,6 +186,7 @@ def services_registry(services: List[Callable]):
 def services_start(yaml_config: str):
     """Legacy function for starting all services."""
     ServiceRegistry.start_all_services(yaml_config)
+    ServiceRegistry.start_scheduler()
 
 
 def register():
