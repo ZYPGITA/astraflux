@@ -1,7 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = ['snowflake_id']
-
 
 def snowflake_id() -> str:
     """

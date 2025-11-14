@@ -1,26 +1,15 @@
 # -*- encoding: utf-8 -*-
 
 import pika
-import pickle
+import dill
 from functools import wraps
 
-from astraflux.meta.keys import *
+from astraflux.definitions.constants import *
+from astraflux.interface.definitions import get_rabbitmq_uri
+
 from .client import RpcClient
 
-__all__ = [
-    'initialization_rpc_proxy',
-    'generate_unique',
-    'remote_call',
-    'proxy_call',
-    'rpc_decorator',
-    'service_running'
-]
-
 _RPC_METHODS = {}
-_AMQP_CONFIG = {
-    RABBITMQ.KEY_RABBITMQ_URI: RABBITMQ.DEFAULT_VALUE_RABBITMQ_URI,
-    RPC.KEY_RPC_CALL_TIMEOUT: RPC.DEFAULT_VALUE_RPC_CALL_TIMEOUT
-}
 
 
 def _parse_config():
@@ -30,8 +19,8 @@ def _parse_config():
     Returns:
         tuple: A tuple containing host (str), port (int), user (str) and password (str).
     """
-
-    parts = _AMQP_CONFIG.get(RABBITMQ.KEY_RABBITMQ_URI).split('@')
+    rabbitmq_uri = get_rabbitmq_uri()
+    parts = rabbitmq_uri.split('@')
 
     user_passwd = parts[0].split('//')[1]
     host_port = parts[1]
@@ -66,7 +55,7 @@ def _start_consumer(queue_name, service_instance):
     def callback(ch, method_frame, props, body):
         response = None
         try:
-            data = pickle.loads(body)
+            data = dill.loads(body)
             method_name = data['method']
             args = data.get('args', [])
             kwargs = data.get('kwargs', {})
@@ -76,12 +65,12 @@ def _start_consumer(queue_name, service_instance):
 
             method = getattr(service_instance, method_name)
             result = method(*args, **kwargs)
-            response = pickle.dumps({
+            response = dill.dumps({
                 'status': 'success',
                 'result': result
             })
         except Exception as e:
-            response = pickle.dumps({
+            response = dill.dumps({
                 'status': 'error',
                 'exception': str(e),
                 'type': type(e).__name__
@@ -107,28 +96,14 @@ def _start_consumer(queue_name, service_instance):
     channel.start_consuming()
 
 
-def initialization_rpc_proxy(config: dict):
-    """
-    Initialize the logger with the given configuration.
-    Args:
-        config (dict): A dictionary containing the configuration.
-    """
-    global _AMQP_CONFIG
-    _AMQP_CONFIG[RABBITMQ.KEY_RABBITMQ_URI] = config.get(
-        RABBITMQ.KEY_RABBITMQ_URI, RABBITMQ.DEFAULT_VALUE_RABBITMQ_URI)
-
-    _AMQP_CONFIG[RPC.KEY_RPC_CALL_TIMEOUT] = config.get(
-        RPC.DEFAULT_VALUE_RPC_CALL_TIMEOUT, RPC.DEFAULT_VALUE_RPC_CALL_TIMEOUT)
-
-
 def generate_unique():
     """
     Generates a unique identifier.
     Returns:
         str: The generated identifier.
     """
-    client = RpcClient(config=_AMQP_CONFIG)
-    service_name = '{}_{}_{}'.format(KEY_PROJECT_NAME, RPC.KEY_SYSTEM_SERVICE_NAME, 'task_distribution')
+    client = RpcClient()
+    service_name = '{}_{}_{}'.format(PROJECT_NAME, DEFINITIONS.SYSTEM_SERVICE_NAME, 'task_distribution')
     data = client.call(service_name=service_name, method_name='generate_id')
     return data
 
@@ -145,7 +120,7 @@ def remote_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
-    client = RpcClient(config=_AMQP_CONFIG)
+    client = RpcClient()
     data = client.call(
         service_name=service_name,
         method_name=method_name,
@@ -166,8 +141,8 @@ def proxy_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
-    client = RpcClient(config=_AMQP_CONFIG)
-    _name = '{}_{}'.format(KEY_PROJECT_NAME, service_name)
+    client = RpcClient()
+    _name = '{}_{}'.format(PROJECT_NAME, service_name)
 
     data = client.call(
         service_name=_name,
@@ -197,16 +172,12 @@ def rpc_decorator(func):
     return wrapper
 
 
-def service_running(service_cls, config):
+def service_running(service_cls):
     """
     Start a RabbitMQ consumer.
     Args:
-        config (dict): The AMQP URL for the RabbitMQ server.
         service_cls (class): The function to be called when a message is received.
     """
-    global _AMQP_CONFIG
-    _AMQP_CONFIG = config
-
     service_instance = service_cls()
     service_name = getattr(service_instance, 'name', service_cls.__name__)
     _start_consumer(service_name, service_instance)
@@ -214,13 +185,12 @@ def service_running(service_cls, config):
 
 def register():
     from astraflux.interface import rpc
-    rpc.initialization_rpc_proxy = initialization_rpc_proxy
     rpc.generate_unique = generate_unique
     rpc.remote_call = remote_call
     rpc.proxy_call = proxy_call
     rpc.rpc_decorator = rpc_decorator
     rpc.service_running = service_running
 
-    if IS_REPLACE_SYS_MODULE:
+    if REPLACE_SYS_MODULE:
         import sys
         sys.modules['astraflux.interface.rpc'] = rpc

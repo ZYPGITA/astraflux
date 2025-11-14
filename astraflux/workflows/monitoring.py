@@ -4,10 +4,10 @@ import json
 import psutil
 import platform
 
-from astraflux.meta.keys import *
-from astraflux.logger import initialization_logger, loguru
-from astraflux.utils import get_converted_time, get_ipaddr
-from astraflux.databases import initialization_mongo, mongodb_node
+from astraflux.definitions.constants import *
+from astraflux.interface.utils import get_ipaddr, get_converted_time
+from astraflux.interface.logger import get_logger
+from astraflux.interface.data_access import node_collector
 
 
 class PlatformInfo:
@@ -162,15 +162,11 @@ class SystemMonitoring:
     It continuously monitors the node's information and updates the database accordingly.
     """
 
-    def __init__(self, config: dict):
+    def __init__(self):
         """
         Initialize the HeartbeatDetection instance.
-        Args:
-            config (dict): Configuration dictionary containing necessary settings.
         """
-        initialization_logger(config=config)
-        initialization_mongo(config=config)
-        self.loguru = loguru(filename=KEY_PROJECT_NAME, task_id='system_monitoring')
+        self.logger = get_logger(filename=PROJECT_NAME, task_id='system_monitoring')
 
     def run(self):
         """
@@ -179,9 +175,5 @@ class SystemMonitoring:
             and updating the database. If an exception occurs, it logs the error and continues.
         """
         node_info = NodeInfo()
-        self.loguru.info(f"{node_info.node}")
-        mongodb_node().update_many(
-            query={SCHEDULE.KEY_NODE_IPADDR: node_info.ipaddr},
-            update_data=node_info.node,
-            upsert=True
-        )
+        self.logger.info(f"{node_info.node}")
+        node_collector().insert(data=node_info.node)

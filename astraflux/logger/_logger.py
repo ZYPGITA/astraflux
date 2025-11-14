@@ -1,27 +1,29 @@
 # -*- encoding: utf-8 -*-
 
+
 import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-from astraflux.meta.keys import *
+from astraflux.definitions.constants import *
+from astraflux.interface.definitions import get_logs_path, get_log_level
 
-__all__ = ['initialization_logger', 'loguru']
-
-_FMT = logging.Formatter(LOG.DEFAULT_VALUE_LOGS_FMT)
-_SUFFIX = LOG.DEFAULT_VALUE_LOGS_SUFFIX
+LOG_LEVELS = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR
+}
 
 _LOGS_POOL = {}
-_LOGS_LEVEL = logging.INFO
-_LOGS_FILE_PATH = os.path.expanduser("~")
 
 
 def _get_log_file_path(filename: str, task_id: str = None):
     if task_id is None:
-        return os.path.join(_LOGS_FILE_PATH, f'{filename}.log')
+        return os.path.join(get_logs_path(), f'{filename}.log')
     else:
-        os.makedirs(os.path.join(_LOGS_FILE_PATH, f'{filename}'), exist_ok=True)
-        return os.path.join(_LOGS_FILE_PATH, filename, f'{task_id}.log')
+        os.makedirs(os.path.join(get_logs_path(), f'{filename}'), exist_ok=True)
+        return os.path.join(get_logs_path(), filename, f'{task_id}.log')
 
 
 def _get_logger(filename: str, task_id: str = None) -> logging.Logger:
@@ -33,19 +35,22 @@ def _get_logger(filename: str, task_id: str = None) -> logging.Logger:
     Returns:
         logging.Logger: A logger instance.
     """
+    level = get_log_level()
+    log_formatter = logging.Formatter(DefaultValues.LOG.FMT)
+
     handler = _get_log_file_path(filename, task_id)
     if handler not in _LOGS_POOL:
         _logger = logging.getLogger(handler)
-        _logger.setLevel(_LOGS_LEVEL)
+        _logger.setLevel(level)
         _logger.propagate = False
 
         th = TimedRotatingFileHandler(filename=handler, when='MIDNIGHT', backupCount=7, encoding='utf-8')
-        th.suffix = _SUFFIX
-        th.setFormatter(_FMT)
+        th.suffix = DefaultValues.LOG.SUFFIX
+        th.setFormatter(log_formatter)
 
         if not any(isinstance(h, logging.StreamHandler) for h in _logger.handlers):
             ch = logging.StreamHandler()
-            ch.setFormatter(_FMT)
+            ch.setFormatter(log_formatter)
             _logger.addHandler(ch)
 
         _logger.addHandler(th)
@@ -54,25 +59,7 @@ def _get_logger(filename: str, task_id: str = None) -> logging.Logger:
     return _LOGS_POOL[handler]
 
 
-def initialization_logger(config: dict):
-    """
-    Initialize the logger with the given configuration.
-    Args:
-        config (dict): A dictionary containing the configuration.
-    """
-    global _LOGS_FILE_PATH, _LOGS_LEVEL
-    _LOGS_FILE_PATH = os.path.join(config.get(KEY_ROOT_PATH), LOG.KEY_LOGS_PATH)
-    log_levels = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO,
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR
-    }
-    level = config.get(LOG.KEY_LOGS_CONFIG_NAME).get(LOG.KEY_LOGS_CONFIG_LEVEL)
-    _LOGS_LEVEL = log_levels.get(level, logging.INFO)
-
-
-def loguru(filename: str = None, task_id: str = None) -> logging.Logger:
+def get_logger(filename: str = None, task_id: str = None) -> logging.Logger:
     """
     Get a logger instance for logging messages.
     Args:
@@ -83,14 +70,13 @@ def loguru(filename: str = None, task_id: str = None) -> logging.Logger:
     """
     if task_id and filename:
         return _get_logger(filename, task_id)
-    return _get_logger(filename=KEY_PROJECT_NAME, task_id=KEY_PROJECT_NAME)
+    return _get_logger(filename=PROJECT_NAME, task_id=PROJECT_NAME)
 
 
 def register():
     from astraflux.interface import logger
-    logger.initialization_logger = initialization_logger
-    logger.loguru = loguru
+    logger.get_logger = get_logger
 
-    if IS_REPLACE_SYS_MODULE:
+    if REPLACE_SYS_MODULE:
         import sys
         sys.modules['astraflux.interface.logger'] = logger

@@ -1,56 +1,52 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = [
-    "initialization_scheduler",
-    "scheduler_add_job",
-    "scheduler_remove_job",
-    "scheduler_start",
-    "scheduler_stop"
-]
+
+from typing import Dict, List, Callable, Optional
 
 
-def initialization_scheduler(config: dict):
+def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
+                     timezone: str = "UTC", arguments: Optional[List] = None,
+                     keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
+                     execution_type: str = "thread") -> bool:
     """
-    Initialize the scheduler.
-    :param config: The configuration dictionary.
+    Schedule a job in the distributed scheduler
+
+    Args:
+        job_id: Unique identifier for the job
+        cron_expression: Cron expression for scheduling
+        function: Function to be executed
+        timezone: Timezone for schedule calculation
+        arguments: Positional arguments for the function
+        keyword_arguments: Keyword arguments for the function
+        allowed_ips: List of IP addresses allowed to execute this job
+        execution_type: 'thread' or 'process'
+
+    Returns:
+        Boolean indicating success
     """
-    return initialization_scheduler(config)
+    return add_schedule_job(
+        job_id=job_id, cron_expression=cron_expression, function=function, timezone=timezone, arguments=arguments,
+        keyword_arguments=keyword_arguments, allowed_ips=allowed_ips, execution_type=execution_type)
 
 
-def scheduler_add_job(job_id, cron_str, func_object, timezone="UTC", args=None, kwargs=None, ipaddrs=None,
-                      exec_type="thread"):
+def remove_scheduled_job(job_id: str) -> bool:
     """
-    Add a job to the scheduler.
-    :param job_id: The ID of the job.
-    :param cron_str: The cron string defining the schedule.
-    :param func_object: The function object to execute.
-    :param timezone: The timezone for the schedule.
-    :param args: Additional arguments to pass to the function.
-    :param kwargs: Additional keyword arguments to pass to the function.
-    :param ipaddrs: List of allowed IP addresses to run the task.
-    :param exec_type: The type of task to run. thread / process
+    Remove a scheduled job from the distributed scheduler
+
+    Args:
+        job_id: ID of the job to remove
+
+    Returns:
+        Boolean indicating success
     """
-    return scheduler_add_job(
-        job_id, cron_str, func_object, timezone, args, kwargs, ipaddrs, exec_type)
+    return remove_scheduled_job(job_id)
 
 
-def scheduler_remove_job(job_id):
-    """
-    Remove a job from the scheduler.
-    :param job_id: The ID of the job to remove.
-    """
-    return scheduler_remove_job(job_id)
+def start_scheduler() -> None:
+    """Start the distributed scheduler"""
+    return start_scheduler()
 
 
-def scheduler_start():
-    """
-    Start the scheduler.
-    """
-    return scheduler_start()
-
-
-def scheduler_stop():
-    """
-    Stop the scheduler.
-    """
-    return scheduler_stop()
+def stop_scheduler() -> None:
+    """Stop the distributed scheduler"""
+    return stop_scheduler()

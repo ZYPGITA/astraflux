@@ -1,23 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = [
-    'initialization_rpc_proxy',
-    'generate_unique',
-    'remote_call',
-    'proxy_call',
-    'rpc_decorator',
-    'service_running'
-]
-
-
-def initialization_rpc_proxy(config: dict):
-    """
-    Initialize the logger with the given configuration.
-    Args:
-        config (dict): A dictionary containing the configuration.
-    """
-    return initialization_rpc_proxy(config)
-
 
 def generate_unique():
     """
@@ -69,11 +51,10 @@ def rpc_decorator(func):
     return rpc_decorator(func)
 
 
-def service_running(service_cls, config):
+def service_running(service_cls):
     """
     Start a RabbitMQ consumer.
     Args:
-        config (dict): The AMQP URL for the RabbitMQ server.
         service_cls (class): The function to be called when a message is received.
     """
-    return service_running(service_cls, config)
+    return service_running(service_cls)

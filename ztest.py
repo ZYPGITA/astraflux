@@ -1,19 +1,52 @@
 # -*- encoding: utf-8 -*-
 
 import os
+import time
 
 from astraflux import *
 
-os_dir = os.path.dirname(__file__)
-af = AstraFlux('config.yaml', os_dir)
+from servers.test_server import test_server, sub_test_server
 
-print(get_converted_time())
+current_dir = os.path.dirname(__file__)
 
-loguru().info(f'current_dir == {current_dir()}')
+
+def test_func(x):
+    print(x)
+
 
 if __name__ == '__main__':
-    from servers.test_server import test_server
+    af = AstraFlux(yaml_file=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-    af.registry(services=[test_server])
+    d = get_current_dir()
 
-    af.start()
+    logger = get_logger()
+    logger.info(d)
+    logger.info(current_dir)
+    logger.info(snowflake_id())
+    logger.info(get_converted_time())
+    logger.info(get_ipaddr())
+
+    # af.registry(services=[test_server, sub_test_server])
+    # af.start()
+
+    executor = gen_thread_executor(logger=logger, max_workers=20, retry_delay=1)
+
+    executor.submit(test_func, 1)
+    executor.submit(test_func, 2)
+    executor.submit(test_func, 3)
+
+    executor.start()
+    executor.wait_completion()
+    executor.shutdown()
+
+"""
+pip install pika
+pip install pymongo
+pip install redis
+pip install pytz
+pip install PyYAML
+pip install dill
+pip install psutil
+
+
+"""

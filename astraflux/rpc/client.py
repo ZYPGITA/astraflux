@@ -2,12 +2,13 @@
 
 import time
 import pika
-import pickle
+import dill
 import builtins
 from pika.exceptions import ChannelClosed
 
-from astraflux.meta import *
-from astraflux.generateId import snowflake_id
+from astraflux.definitions.constants import *
+from astraflux.interface.definitions import get_rabbitmq_uri
+from astraflux.interface.snowflake import snowflake_id
 
 __all__ = ["RpcClient"]
 
@@ -22,26 +23,15 @@ class ServiceUnavailableError(Exception):
 class RpcClient:
     """
     A RabbitMQ RPC client for making remote procedure calls.
-    Args:
-        config (dict): A dictionary containing the RabbitMQ configuration.
-            - 'RABBITMQ_URI' (str): The RabbitMQ URI in the format 'amqp://user:password@host:port'.
     Attributes:
-        config (dict): The RabbitMQ configuration.
-        host (str): The RabbitMQ host.
-        port (int): The RabbitMQ port.
-        user (str): The RabbitMQ username.
-        passwd (str): The RabbitMQ password.
         credentials (pika.PlainCredentials): The RabbitMQ credentials.
         connection (pika.BlockingConnection): The RabbitMQ connection.
         channel (pika.BlockingChannel): The RabbitMQ channel.
         queue (str): The RabbitMQ queue name
     """
 
-    def __init__(self, config: dict):
-        self.config = config
-        self.timeout = config.get(RPC.KEY_RPC_CALL_TIMEOUT, RPC.DEFAULT_VALUE_RPC_CALL_TIMEOUT)
-
-        self._validate_config()
+    def __init__(self):
+        self.timeout = DefaultValues.RPC.RPC_CALL_TIMEOUT
 
         self.response = None
         self.corr_id = snowflake_id()
@@ -67,10 +57,6 @@ class RpcClient:
             on_message_callback=self._on_response,
             auto_ack=True
         )
-
-    def _validate_config(self):
-        if not self.config.get(RABBITMQ.KEY_RABBITMQ_URI):
-            raise ValueError("Missing RabbitMQ URI in config")
 
     def _create_connection(self):
         """
@@ -140,8 +126,9 @@ class RpcClient:
         Returns:
             tuple: A tuple containing host (str), port (int), user (str) and password (str).
         """
+        rabbitmq_uri = get_rabbitmq_uri()
 
-        parts = self.config.get(RABBITMQ.KEY_RABBITMQ_URI).split('@')
+        parts = rabbitmq_uri.split('@')
 
         user_passwd = parts[0].split('//')[1]
         host_port = parts[1]
@@ -153,7 +140,7 @@ class RpcClient:
 
     def _on_response(self, ch, method, props, body):
         if self.corr_id == props.correlation_id:
-            self.response = pickle.loads(body)
+            self.response = dill.loads(body)
 
     def call(self, service_name, method_name, *args, **kwargs):
         """
@@ -187,7 +174,7 @@ class RpcClient:
                 correlation_id=self.corr_id,
                 delivery_mode=2
             ),
-            body=pickle.dumps(request)
+            body=dill.dumps(request)
         )
 
         start_time = time.time()

@@ -2,15 +2,9 @@
 import json
 import pika
 
-from astraflux.meta.keys import *
+from astraflux.definitions.constants import *
+from astraflux.interface.definitions import get_rabbitmq_uri
 
-__all__ = [
-    'initialization_rabbitmq',
-    'rabbitmq_send_message',
-    'rabbitmq_receive_message'
-]
-
-_RABBITMQ_URI = RABBITMQ.DEFAULT_VALUE_RABBITMQ_URI
 _MQ_CHANNEL = None
 
 
@@ -21,7 +15,8 @@ def _parse_config():
     Returns:
         tuple: A tuple containing host (str), port (int), user (str) and password (str).
     """
-    parts = _RABBITMQ_URI.split('@')
+    rabbitmq_uri = get_rabbitmq_uri()
+    parts = rabbitmq_uri.split('@')
     user_passwd = parts[0].split('//')[1]
     host_port = parts[1]
 
@@ -63,7 +58,7 @@ def _create_queue(queue: str):
     _channel = _mq_channel()
     while True:
         try:
-            _channel.queue_declare(queue=queue)
+            _channel.queue_declare(queue=queue, durable=True)
             break
         except Exception as e:
             try:
@@ -72,22 +67,12 @@ def _create_queue(queue: str):
 
                 _channel = _mq_channel()
                 _MQ_CHANNEL = _channel
-                _channel.queue_declare(queue=queue)
+                _channel.queue_declare(queue=queue, durable=True)
                 break
             except Exception as e:
                 print('create_queue name == ', queue, ' error == ', e)
 
     return _channel
-
-
-def initialization_rabbitmq(config: dict):
-    """
-    Initialize the logger with the given configuration.
-    Args:
-        config (dict): A dictionary containing the configuration.
-    """
-    global _RABBITMQ_URI
-    _RABBITMQ_URI = config.get(RABBITMQ.KEY_RABBITMQ_URI)
 
 
 def rabbitmq_send_message(queue: str, message: dict):
@@ -121,8 +106,7 @@ def register():
     from astraflux.interface import rabbitmq
     rabbitmq.rabbitmq_send_message = rabbitmq_send_message
     rabbitmq.rabbitmq_receive_message = rabbitmq_receive_message
-    rabbitmq.initialization_rabbitmq = initialization_rabbitmq
 
-    if IS_REPLACE_SYS_MODULE:
+    if REPLACE_SYS_MODULE:
         import sys
         sys.modules['astraflux.interface.rabbitmq'] = rabbitmq
