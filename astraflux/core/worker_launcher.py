@@ -8,6 +8,16 @@ import argparse
 import multiprocessing
 
 from astraflux.definitions.constants import *
+
+from astraflux.inject import inject_init
+from astraflux.interface.utils import get_converted_time
+
+from astraflux.interface.data_access import (
+    task_collector, service_collector, update_running_worker,
+    task_status_get_from_redis, worker_get_running_and_max_count)
+from astraflux.interface.rabbitmq import rabbitmq_receive_message
+from astraflux.interface.core import WorkerConstructor, init_global_vars
+
 from astraflux.core.build import Build
 
 
@@ -32,7 +42,8 @@ class TaskExecutor:
             current_dir: Current working directory
             root_path: Root application directory
         """
-        from astraflux.interface.data_access import update_running_worker
+
+        inject_init(root_path=root_path)
 
         # Initialize global environment for this task
         init_global_vars(
@@ -106,7 +117,6 @@ class TaskExecutor:
             worker_pid: Worker process ID
             status: New task status
         """
-        from astraflux.interface.data_access import update_task
 
         current_time = get_converted_time()
         update_data = {
@@ -121,9 +131,9 @@ class TaskExecutor:
         else:
             update_data[DEFINITIONS.TASK.END_TIME] = current_time
 
-        update_task(
+        task_collector().update(
             query={DEFINITIONS.TASK.ID: task_data[DEFINITIONS.TASK.ID]},
-            update_data=update_data,
+            data=update_data,
             upsert=False
         )
 
@@ -222,7 +232,6 @@ class MessageQueueHandler:
         Returns:
             Boolean indicating if task should be executed
         """
-        from astraflux.interface.data_access import task_status_get_from_redis
 
         # System services always execute
         if DEFINITIONS.SYSTEM_SERVICE_NAME in self.worker_name:
@@ -241,7 +250,6 @@ class MessageQueueHandler:
         Returns:
             Boolean indicating if worker has available capacity
         """
-        from astraflux.interface.data_access import worker_get_running_and_max_count
 
         current_workers, max_workers = worker_get_running_and_max_count(
             query={
@@ -328,14 +336,12 @@ class WorkerComponentLauncher:
             DEFINITIONS.BUILD.WORKER_RUN_PROCESS: [],
         }
 
-        from astraflux.interface.data_access import update_service
-
-        update_service(
+        service_collector().update(
             query={
                 DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
                 DEFINITIONS.BUILD.WORKER_NAME: worker_component.worker_name
             },
-            update_data=worker_registration_data,
+            data=worker_registration_data,
             upsert=True
         )
 
@@ -359,8 +365,6 @@ class WorkerComponentLauncher:
             ipaddr=worker_component.ipaddr,
             worker_name=worker_component.worker_name
         )
-
-        from astraflux.interface.rabbitmq import rabbitmq_receive_message
 
         # Main message processing loop with error handling
         while True:
@@ -395,10 +399,6 @@ if __name__ == '__main__':
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
     sys.path.append(args.root_path)
-
-    from astraflux.inject import inject_init
-    from astraflux.interface.core import WorkerConstructor, init_global_vars
-    from astraflux.interface.utils import get_converted_time
 
     # Initialize dependency injection system
     inject_init(root_path=args.root_path)

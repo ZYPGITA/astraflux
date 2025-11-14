@@ -14,6 +14,7 @@ from astraflux.interface.scheduler import add_schedule_job, start_scheduler
 from astraflux.interface.logger import get_logger
 
 from astraflux.workflows.task_distribution import TaskScheduler
+from astraflux.workflows.monitoring import SystemMonitoring
 
 # Global constants
 _PYTHON_NAME = 'python'
@@ -172,6 +173,12 @@ class ServiceRegistry:
             cron_expression='*/10 * * * * *',
             execution_type='thread',
             function=TaskScheduler().execute,
+        )
+        add_schedule_job(
+            job_id='SystemMonitoring001',
+            cron_expression='*/30 * * * * *',
+            execution_type='thread',
+            function=SystemMonitoring().run,
         )
 
         start_scheduler()

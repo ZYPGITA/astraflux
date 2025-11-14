@@ -1,10 +1,165 @@
 # -*- encoding: utf-8 -*-
 
-from typing import Dict, List, Tuple, Optional, TypeVar, Any
 
 from astraflux.definitions.constants import *
+from typing import Dict, List, Tuple, Optional, TypeVar, Any
 
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
+
+
+class MongoDBCollector:
+    """
+    MongoDB Collection Operation Wrapper Class.
+
+    This class encapsulates core CRUD (Create, Read, Update, Delete) operations for MongoDB collections,
+    supports array manipulation (push/pull), and implements instance caching by collection name to avoid
+    redundant connections and improve performance.
+
+    Subclasses must specify the `_collection_name` class attribute to bind to a specific MongoDB collection.
+    """
+
+    def update(self, query: Dict, data: Dict, upsert: bool = False) -> None:
+        """
+        Update Multiple Documents Matching the Query.
+
+        Uses MongoDB's $set operator to update specified fields without overwriting the entire document.
+        Supports upsert (insert new document if no match is found).
+
+        Args:
+            query (Dict): Query filter to match target documents (e.g., {"task_id": "123456"}).
+            data (Dict): Fields to update (e.g., {"status": "completed", "update_time": "2024-01-01"}).
+            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to False.
+
+        Returns:
+            None
+        """
+
+    def array_push(self, query: Dict, data: Dict, single: bool = False, upsert: bool = False) -> None:
+        """
+        Push Data to Array Fields in Documents.
+
+        Uses MongoDB's $push operator to add elements to array-type fields. Supports single or multiple documents.
+
+        Args:
+            query (Dict): Query filter to match target documents (e.g., {"user_id": "789"}).
+            data (Dict): Array fields and values to push (e.g., {"tags": "urgent", "subtasks": {"id": "sub_1"}}).
+            single (bool, optional): Whether to update only the first matching document. Defaults to False (update all).
+            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to False.
+
+        Returns:
+            None
+        """
+
+    def array_pull(self, query: Dict, data: Dict, single: bool = True) -> None:
+        """
+        Remove Data from Array Fields in Documents.
+
+        Uses MongoDB's $pull operator to remove elements from array-type fields. Supports single or multiple documents.
+
+        Args:
+            query (Dict): Query filter to match target documents (e.g., {"user_id": "789"}).
+            data (Dict): Array fields and values to remove (e.g., {"tags": "urgent", "subtasks": {"id": "sub_1"}}).
+            single (bool, optional): Whether to update only the first matching document.
+                Defaults to True (update first).
+
+        Returns:
+            None
+        """
+
+    def insert(self, data: Dict) -> None:
+        """
+        Insert a Single Document into the Collection.
+
+        Adds a new document to the target collection. The document must be a valid MongoDB BSON-serializable dict.
+
+        Args:
+            data (Dict): Document to insert (e.g., {"task_id": "123", "name": "Task A", "status": "pending"}).
+
+        Returns:
+            None
+        """
+
+    def delete(self, query: Dict) -> None:
+        """
+        Delete Multiple Documents Matching the Query.
+
+        Removes all documents that match the query filter. Use with caution to avoid accidental data loss.
+
+        Args:
+            query (Dict): Query filter to match documents to delete (e.g., {"expired": True}).
+
+        Returns:
+            None
+        """
+
+    def find(self, query: Dict, fields: Dict = None) -> List[Dict]:
+        """
+        Query All Documents Matching the Filter.
+
+        Retrieves all documents that satisfy the query, with optional field projection to include/exclude fields.
+
+        Args:
+            query (Dict): Query filter (e.g., {"status": "running"}). Use {} to retrieve all documents.
+            fields (Dict, optional): Field projection (e.g., {"_id": 0, "task_id": 1, "status": 1}).
+                - 1: Include the field
+                - 0: Exclude the field (cannot mix 1 and 0 except for _id)
+                Defaults to None (return all fields).
+
+        Returns:
+            List[Dict]: List of matching documents (empty list if no matches).
+        """
+
+    def find_one(self, query: Dict, fields: Dict = None) -> Optional[Dict]:
+        """
+        Query a Single Document Matching the Filter.
+
+        Retrieves the first document that matches the query filter (ordered by insertion time by default).
+
+        Args:
+            query (Dict): Query filter (e.g., {"task_id": "123456"}).
+            fields (Dict, optional): Field projection (same as `find` method). Defaults to None.
+
+        Returns:
+            Optional[Dict]: Matching document (None if no match is found).
+        """
+
+    def count(self, query: Dict) -> int:
+        """
+        Count Documents Matching the Query.
+
+        Returns the total number of documents that satisfy the query filter (supports large collections efficiently).
+
+        Args:
+            query (Dict): Query filter (e.g., {"queue": "task_queue_1"}). Use {} to count all documents.
+
+        Returns:
+            int: Number of matching documents.
+        """
+
+    def find_paginated(self, query: Dict, fields: Dict = None, limit: int = 10, skip: int = 0,
+                       sort_field: str = 'create_time', sort_order: int = -1) -> Tuple[int, List[Dict]]:
+        """
+        Paginated Query with Sorting.
+
+        Retrieves a paginated subset of documents with specified sorting, returns total count and current page data.
+        Ideal for large datasets to avoid loading all documents at once.
+
+        Args:
+            query (Dict): Query filter (e.g., {"status": "completed"}).
+            fields (Dict, optional): Field projection. Defaults to None.
+            limit (int, optional): Maximum number of documents per page. Defaults to 10.
+            skip (int, optional): Number of documents to skip (for pagination). Defaults to 0 (first page).
+            sort_field (str, optional): Field to sort by (e.g., "create_time", "priority"). Defaults to 'create_time'.
+            sort_order (int, optional): Sort direction:
+                - 1: Ascending (from oldest to newest)
+                - -1: Descending (from newest to oldest)
+                Defaults to -1.
+
+        Returns:
+            Tuple[int, List[Dict]]:
+                - First element: Total number of matching documents (for pagination controls)
+                - Second element: List of documents for the current page
+        """
 
 
 def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str:
@@ -18,7 +173,8 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
         4. Return the task ID for tracking.
 
     Use Case:
-        Suitable for scenarios where task data needs to be persisted but execution does not need to be triggered immediately.
+        Suitable for scenarios where task data needs to be persisted but execution does
+            not need to be triggered immediately.
 
     Args:
         queue_name (str): Target queue name (maps to a running service).
@@ -31,7 +187,8 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
     Raises:
         ValueError: If the service associated with `queue_name` is not running.
     """
-    return task_submit_to_db(queue_name, task_data, weight)
+
+    return task_submit_to_db(queue_name=queue_name, task_data=task_data, weight=weight)
 
 
 def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str:
@@ -47,7 +204,8 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
 
     Args:
         queue_name (str): Target queue name (must have a running service/worker).
-        task_data (TaskData): Business-related task data (e.g., {"action": "send_email", "recipient": "user@example.com"}).
+        task_data (TaskData): Business-related task data
+            (e.g., {"action": "send_email", "recipient": "user@example.com"}).
         weight (int, optional): Task priority weight. Defaults to `DefaultValues.TASK.WEIGHT` (1).
 
     Returns:
@@ -56,7 +214,7 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
     Raises:
         ValueError: If the service associated with `queue_name` is not running.
     """
-    return task_submit_to_db_and_mq(queue_name, task_data, weight)
+    return task_submit_to_db_and_mq(queue_name=queue_name, task_data=task_data, weight=weight)
 
 
 def subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: List[TaskData]) -> List[str]:
@@ -69,8 +227,8 @@ def subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: 
 
     Key Features:
         - Auto-generates subtask IDs (if missing).
-        - Links subtasks to the parent task via `DEFINITIONS.TASK.TASK_SOURCE_ID`.
-        - Sets initial status to "waiting" and marks as subtasks (`DEFINITIONS.TASK.TASK_IS_SUB_TASK` = True).
+        - Links subtasks to the parent task via `DEFINITIONS.TASK.SOURCE_ID`.
+        - Sets initial status to "waiting" and marks as subtasks (`DEFINITIONS.TASK.IS_SUB_TASK` = True).
 
     Args:
         source_task_id (str): ID of the parent task (subtasks are linked to this ID).
@@ -84,7 +242,8 @@ def subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: 
         ValueError: If the service associated with `subtask_queue` is not running.
         TypeError: If `subtask_list` is not a list (expected List[TaskData]).
     """
-    return subtask_batch_create(source_task_id, subtask_queue, subtask_list)
+
+    return subtask_batch_create(source_task_id=source_task_id, subtask_queue=subtask_queue, subtask_list=subtask_list)
 
 
 def task_get_by_id(task_id: str) -> Dict[str, Any]:
@@ -92,7 +251,8 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     Retrieve task details by task ID from the database.
 
     Core Functionality:
-        Queries MongoDB for a task with the specified ID and returns the complete task data (excluding MongoDB's default `_id` field).
+        Queries MongoDB for a task with the specified ID and returns the complete task data
+            (excluding MongoDB's default `_id` field).
         Returns an empty dict if no matching task is found (avoids None-related errors).
 
     Args:
@@ -101,7 +261,8 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Complete task data (business + system fields) if found; empty dict otherwise.
     """
-    return task_get_by_id(task_id)
+
+    return task_get_by_id(task_id=task_id)
 
 
 def worker_get_running_and_max_count(query: Dict[str, Any]) -> Tuple[int, int]:
@@ -120,9 +281,9 @@ def worker_get_running_and_max_count(query: Dict[str, Any]) -> Tuple[int, int]:
             - First element: Number of running worker processes (length of `BUILD.KEY_WORKER_RUN_PROCESS` list).
             - Second element: Maximum allowed worker processes (`BUILD.KEY_WORKER_MAX_PROCESS`).
             Returns (0, 0) if no matching service is found.
-
     """
-    return worker_get_running_and_max_count(query)
+
+    return worker_get_running_and_max_count(query=query)
 
 
 def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
@@ -130,8 +291,8 @@ def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
     Stop a main task and all its associated subtasks (update status to "stopped").
 
     Core Functionality:
-        1. Updates the main task's status to `DEFINITIONS.TASK.TASK_STOP_STATUS` in MongoDB.
-        2. Updates all subtasks linked via `DEFINITIONS.TASK.TASK_SOURCE_ID` to "stopped" in MongoDB.
+        1. Updates the main task's status to `DEFINITIONS.STATUS.STOPPED` in MongoDB.
+        2. Updates all subtasks linked via `DEFINITIONS.TASK.SOURCE_ID` to "stopped" in MongoDB.
         3. Syncs the "stopped" status to Redis cache (with configurable expiration) for fast querying.
 
     Args:
@@ -143,7 +304,7 @@ def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
         - This operation is idempotent: stopping an already stopped task/subtask has no effect.
         - Redis cache is updated to ensure consistency between DB and cache for status queries.
     """
-    return task_and_subtasks_stop(task_id, expire_seconds)
+    return task_and_subtasks_stop(task_id=task_id, expire_seconds=expire_seconds)
 
 
 def task_status_get_from_redis(task_id: str) -> Optional[str]:
@@ -168,65 +329,8 @@ def task_status_get_from_redis(task_id: str) -> Optional[str]:
         - For guaranteed accuracy (e.g., after task completion), use `task_get_by_id` to query MongoDB directly.
 
     """
-    return task_status_get_from_redis(task_id)
 
-
-def update_service(query: dict, update_data: dict, upsert: bool = True):
-    """
-      Update service information in the MongoDB service collection.
-
-      This function provides an interface to update existing service records
-      or create new ones if they don't exist. It's commonly used for:
-      - Updating service status and health information
-      - Modifying service configuration parameters
-      - Tracking service instance lifecycle changes
-
-      Args:
-          query (dict): MongoDB query filter to select the service document(s) to update.
-
-          update_data (dict): The data to update in the matched service document(s).
-                             Can include both field updates and operations like $set, $push, etc.
-
-          upsert (bool, optional): If True, creates a new document when no document matches the query.
-                                  Defaults to True to prevent accidental document creation.
-
-      Returns:
-          None: This function doesn't return any value but may raise exceptions on database errors.
-
-      Raises:
-          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
-          ValueError: If query or update_data parameters are invalid.
-      """
-    return update_service(query, update_data, upsert)
-
-
-def update_task(query: dict, update_data: dict, upsert: bool = True):
-    """
-      Update task information in the MongoDB task collection.
-
-      This function provides an interface to update existing task records
-      or create new ones if they don't exist. It's commonly used for:
-      - Updating task status and health information
-      - Modifying task configuration parameters
-      - Tracking task instance lifecycle changes
-
-      Args:
-          query (dict): MongoDB query filter to select the task document(s) to update.
-
-          update_data (dict): The data to update in the matched task document(s).
-                             Can include both field updates and operations like $set, $push, etc.
-
-          upsert (bool, optional): If True, creates a new document when no document matches the query.
-                                  Defaults to True to prevent accidental document creation.
-
-      Returns:
-          None: This function doesn't return any value but may raise exceptions on database errors.
-
-      Raises:
-          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
-          ValueError: If query or update_data parameters are invalid.
-      """
-    return update_task(query, update_data, upsert)
+    return task_status_get_from_redis(task_id=task_id)
 
 
 def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
@@ -238,7 +342,7 @@ def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'
         pid: worker pid
         action: push / pull
     """
-    return update_running_worker(name, ipaddr, pid, action)
+    return update_running_worker(name=name, ipaddr=ipaddr, pid=pid, action=action)
 
 
 def task_find_paginated(
@@ -268,10 +372,12 @@ def task_find_paginated(
         limit: Maximum number of task records to return per page. Must be a non-negative integer.
             Defaults to 10. Use 0 with caution (may return all matching records if allowed by the collection).
         skip: Number of task records to skip before returning results (for offset-based pagination).
-            Defaults to 0 (starts from the first matching record). Use cautiously with large values (can impact performance).
+            Defaults to 0 (starts from the first matching record). Use cautiously with large values
+                (can impact performance).
         sort_field: Name of the field to sort the results by. Must be a valid field in the task collection.
             Defaults to 'create_time' (common use case for chronological sorting).
-        sort_order: Sort direction. Use 1 for ascending order (A→Z, oldest→newest) and -1 for descending order (Z→A, newest→oldest).
+        sort_order: Sort direction. Use 1 for ascending order (A→Z, oldest→newest) and -1 for descending order
+            (Z→A, newest→oldest).
             Defaults to -1 (descending order, e.g., newest tasks first when sorting by 'create_time').
 
     Returns:
@@ -301,11 +407,11 @@ def task_find_paginated(
         print(f"Page 2 tasks: {current_page_tasks}")
 
     Notes:
-        - For large collections, consider using cursor-based pagination instead of offset-based (skip) for better performance.
+        - For large collections, consider using cursor-based pagination instead of offset-based
+            (skip) for better performance.
         - Ensure the `sort_field` is indexed in the MongoDB collection to optimize sorting performance.
         - The `fields` parameter follows MongoDB projection rules (cannot mix include/exclude except for _id).
     """
-
     return task_find_paginated(
         query=query,
         fields=fields,
@@ -321,7 +427,8 @@ def find_services(
         fields: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
-    Retrieves a list of service records from the MongoDB service collection based on the specified query and field projection.
+    Retrieves a list of service records from the MongoDB service collection based on the specified query
+        and field projection.
 
     This function acts as a wrapper for MongoDB's find operation on the service collection, providing a clean,
     reusable interface to fetch service data. It supports filtering results with a query dictionary and selecting
@@ -350,7 +457,8 @@ def find_services(
     Dependencies:
         - Requires the `mongodb_get_service_collector()` helper function, which must return a valid MongoDB collection
           instance for the service data store (handles connection pooling, authentication, and collection selection).
-        - The underlying MongoDB collection must support the `find()` method with standard query and projection parameters.
+        - The underlying MongoDB collection must support the `find()` method with standard query
+            and projection parameters.
 
     Example Usage:
         # 1. Fetch all active services, including only name, host, and port
@@ -372,11 +480,50 @@ def find_services(
         print("All services count:", len(all_services))
 
     Notes:
-        - Field projection rules: MongoDB does not allow mixing inclusion (1) and exclusion (0) except for the _id field.
+        - Field projection rules: MongoDB does not allow mixing inclusion (1) and exclusion (0)
+            except for the _id field.
           For example: {"name": 1, "host": 0} is invalid, but {"_id": 0, "name": 1} is valid.
-        - For large result sets, consider adding pagination (limit/skip) or cursor-based iteration to avoid memory issues.
+        - For large result sets, consider adding pagination (limit/skip) or cursor-based iteration
+            to avoid memory issues.
         - Ensure frequently queried fields (e.g., "status", "type") are indexed in MongoDB for improved performance.
         - The function does not handle exceptions (e.g., database connection errors, invalid query syntax) —
           error handling should be implemented at the call site if needed.
     """
+
     return find_services(query=query, fields=fields)
+
+
+def task_collector() -> MongoDBCollector:
+    """
+    Get Instance of TaskMongoDBCollector.
+
+    Provides global access to the task collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of TaskMongoDBCollector for task collection operations.
+    """
+    return task_collector()
+
+
+def service_collector() -> MongoDBCollector:
+    """
+    Get Instance of ServiceMongoDBCollector.
+
+    Provides global access to the service collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of ServiceMongoDBCollector for service collection operations.
+    """
+    return service_collector()
+
+
+def node_collector() -> MongoDBCollector:
+    """
+    Get Instance of NodeMongoDBCollector.
+
+    Provides global access to the node collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of NodeMongoDBCollector for node collection operations.
+    """
+    return node_collector()

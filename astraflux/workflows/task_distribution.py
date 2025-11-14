@@ -3,7 +3,7 @@
 from astraflux.definitions.constants import *
 from astraflux.interface.logger import get_logger
 from astraflux.interface.rabbitmq import rabbitmq_send_message
-from astraflux.interface.data_access import task_find_paginated, find_services, update_task
+from astraflux.interface.data_access import task_find_paginated, find_services, task_collector
 
 
 class TaskScheduler:
@@ -99,13 +99,13 @@ class TaskScheduler:
         )[1]
 
         if failed_main_tasks:
-            update_task(
+            task_collector().update(
                 query={
                     DEFINITIONS.TASK.SOURCE_ID: {
                         '$in': [task[DEFINITIONS.TASK.ID] for task in failed_main_tasks]
                     }
                 },
-                update_data={DEFINITIONS.TASK.STATUS: DEFINITIONS.STATUS.STOPPED}
+                data={DEFINITIONS.TASK.STATUS: DEFINITIONS.STATUS.STOPPED}
             )
 
     def _schedule_pending_tasks(self, worker_capacity):
@@ -225,9 +225,9 @@ class TaskScheduler:
         )[1]
 
         if not waiting_subtasks:
-            update_task(
+            task_collector().update(
                 query={DEFINITIONS.TASK.ID: source_id},
-                update_data={DEFINITIONS.TASK.IS_SUB_TASK_ALL_FINISH: True}
+                data={DEFINITIONS.TASK.IS_SUB_TASK_ALL_FINISH: True}
             )
             return
 
@@ -279,7 +279,7 @@ class TaskScheduler:
 
         self.logger.info(f'Dispatching task: {task[DEFINITIONS.TASK.ID]}')
 
-        update_task(
+        task_collector().update(
             query={DEFINITIONS.TASK.ID: task[DEFINITIONS.TASK.ID]},
-            update_data={DEFINITIONS.TASK.STATUS: DEFINITIONS.STATUS.PENDING}
+            data={DEFINITIONS.TASK.STATUS: DEFINITIONS.STATUS.PENDING}
         )

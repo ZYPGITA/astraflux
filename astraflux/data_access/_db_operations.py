@@ -7,7 +7,7 @@ from astraflux.interface.snowflake import snowflake_id
 from astraflux.interface.rabbitmq import rabbitmq_send_message
 from astraflux.interface.utils import get_converted_time
 
-from .mongodb import mongodb_get_task_collector, mongodb_get_service_collector
+from .mongodb import mongodb_get_task_collector, mongodb_get_service_collector, mongodb_get_node_collector
 from .redisdb import redis_get_task_client
 
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
@@ -122,7 +122,8 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
         4. Return the task ID for tracking.
 
     Use Case:
-        Suitable for scenarios where task data needs to be persisted but execution does not need to be triggered immediately.
+        Suitable for scenarios where task data needs to be persisted but execution does
+            not need to be triggered immediately.
 
     Args:
         queue_name (str): Target queue name (maps to a running service).
@@ -163,7 +164,8 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
 
     Args:
         queue_name (str): Target queue name (must have a running service/worker).
-        task_data (TaskData): Business-related task data (e.g., {"action": "send_email", "recipient": "user@example.com"}).
+        task_data (TaskData): Business-related task data
+            (e.g., {"action": "send_email", "recipient": "user@example.com"}).
         weight (int, optional): Task priority weight. Defaults to `DefaultValues.TASK.WEIGHT` (1).
 
     Returns:
@@ -254,7 +256,8 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     Retrieve task details by task ID from the database.
 
     Core Functionality:
-        Queries MongoDB for a task with the specified ID and returns the complete task data (excluding MongoDB's default `_id` field).
+        Queries MongoDB for a task with the specified ID and returns the complete task data
+            (excluding MongoDB's default `_id` field).
         Returns an empty dict if no matching task is found (avoids None-related errors).
 
     Args:
@@ -389,66 +392,6 @@ def task_status_get_from_redis(task_id: str) -> Optional[str]:
     return task_cache.get(DEFINITIONS.TASK.STATUS)
 
 
-def update_service(query: dict, update_data: dict, upsert: bool = True):
-    """
-      Update service information in the MongoDB service collection.
-
-      This function provides an interface to update existing service records
-      or create new ones if they don't exist. It's commonly used for:
-      - Updating service status and health information
-      - Modifying service configuration parameters
-      - Tracking service instance lifecycle changes
-
-      Args:
-          query (dict): MongoDB query filter to select the service document(s) to update.
-
-          update_data (dict): The data to update in the matched service document(s).
-                             Can include both field updates and operations like $set, $push, etc.
-
-          upsert (bool, optional): If True, creates a new document when no document matches the query.
-                                  Defaults to True to prevent accidental document creation.
-
-      Returns:
-          None: This function doesn't return any value but may raise exceptions on database errors.
-
-      Raises:
-          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
-          ValueError: If query or update_data parameters are invalid.
-      """
-    _service_collector = mongodb_get_service_collector()
-    _service_collector.update(query=query, data=update_data, upsert=upsert)
-
-
-def update_task(query: dict, update_data: dict, upsert: bool = True):
-    """
-      Update task information in the MongoDB task collection.
-
-      This function provides an interface to update existing task records
-      or create new ones if they don't exist. It's commonly used for:
-      - Updating task status and health information
-      - Modifying task configuration parameters
-      - Tracking task instance lifecycle changes
-
-      Args:
-          query (dict): MongoDB query filter to select the task document(s) to update.
-
-          update_data (dict): The data to update in the matched task document(s).
-                             Can include both field updates and operations like $set, $push, etc.
-
-          upsert (bool, optional): If True, creates a new document when no document matches the query.
-                                  Defaults to True to prevent accidental document creation.
-
-      Returns:
-          None: This function doesn't return any value but may raise exceptions on database errors.
-
-      Raises:
-          pymongo.errors.PyMongoError: If there's an issue with the MongoDB operation.
-          ValueError: If query or update_data parameters are invalid.
-      """
-    _task_collector = mongodb_get_task_collector()
-    _task_collector.update(query=query, data=update_data, upsert=upsert)
-
-
 def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
     """
     Update running worker information in the MongoDB worker collection.
@@ -498,10 +441,12 @@ def task_find_paginated(
         limit: Maximum number of task records to return per page. Must be a non-negative integer.
             Defaults to 10. Use 0 with caution (may return all matching records if allowed by the collection).
         skip: Number of task records to skip before returning results (for offset-based pagination).
-            Defaults to 0 (starts from the first matching record). Use cautiously with large values (can impact performance).
+            Defaults to 0 (starts from the first matching record). Use cautiously with large values
+                (can impact performance).
         sort_field: Name of the field to sort the results by. Must be a valid field in the task collection.
             Defaults to 'create_time' (common use case for chronological sorting).
-        sort_order: Sort direction. Use 1 for ascending order (A→Z, oldest→newest) and -1 for descending order (Z→A, newest→oldest).
+        sort_order: Sort direction. Use 1 for ascending order (A→Z, oldest→newest) and -1 for descending order
+            (Z→A, newest→oldest).
             Defaults to -1 (descending order, e.g., newest tasks first when sorting by 'create_time').
 
     Returns:
@@ -531,7 +476,8 @@ def task_find_paginated(
         print(f"Page 2 tasks: {current_page_tasks}")
 
     Notes:
-        - For large collections, consider using cursor-based pagination instead of offset-based (skip) for better performance.
+        - For large collections, consider using cursor-based pagination instead of offset-based
+            (skip) for better performance.
         - Ensure the `sort_field` is indexed in the MongoDB collection to optimize sorting performance.
         - The `fields` parameter follows MongoDB projection rules (cannot mix include/exclude except for _id).
     """
@@ -552,7 +498,8 @@ def find_services(
         fields: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
-    Retrieves a list of service records from the MongoDB service collection based on the specified query and field projection.
+    Retrieves a list of service records from the MongoDB service collection based on the specified query
+        and field projection.
 
     This function acts as a wrapper for MongoDB's find operation on the service collection, providing a clean,
     reusable interface to fetch service data. It supports filtering results with a query dictionary and selecting
@@ -581,7 +528,8 @@ def find_services(
     Dependencies:
         - Requires the `mongodb_get_service_collector()` helper function, which must return a valid MongoDB collection
           instance for the service data store (handles connection pooling, authentication, and collection selection).
-        - The underlying MongoDB collection must support the `find()` method with standard query and projection parameters.
+        - The underlying MongoDB collection must support the `find()` method with standard query
+            and projection parameters.
 
     Example Usage:
         # 1. Fetch all active services, including only name, host, and port
@@ -603,9 +551,11 @@ def find_services(
         print("All services count:", len(all_services))
 
     Notes:
-        - Field projection rules: MongoDB does not allow mixing inclusion (1) and exclusion (0) except for the _id field.
+        - Field projection rules: MongoDB does not allow mixing inclusion (1) and exclusion (0)
+            except for the _id field.
           For example: {"name": 1, "host": 0} is invalid, but {"_id": 0, "name": 1} is valid.
-        - For large result sets, consider adding pagination (limit/skip) or cursor-based iteration to avoid memory issues.
+        - For large result sets, consider adding pagination (limit/skip) or cursor-based iteration
+            to avoid memory issues.
         - Ensure frequently queried fields (e.g., "status", "type") are indexed in MongoDB for improved performance.
         - The function does not handle exceptions (e.g., database connection errors, invalid query syntax) —
           error handling should be implemented at the call site if needed.
@@ -613,6 +563,42 @@ def find_services(
 
     service_collection = mongodb_get_service_collector()
     return list(service_collection.find(query=query, fields=fields))
+
+
+def task_collector():
+    """
+    Get Instance of TaskMongoDBCollector.
+
+    Provides global access to the task collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of TaskMongoDBCollector for task collection operations.
+    """
+    return mongodb_get_task_collector()
+
+
+def service_collector():
+    """
+    Get Instance of ServiceMongoDBCollector.
+
+    Provides global access to the service collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of ServiceMongoDBCollector for service collection operations.
+    """
+    return mongodb_get_service_collector()
+
+
+def node_collector():
+    """
+    Get Instance of NodeMongoDBCollector.
+
+    Provides global access to the node collection operation wrapper.
+
+    Returns:
+        MongoDBCollector: Instance of NodeMongoDBCollector for node collection operations.
+    """
+    return mongodb_get_node_collector()
 
 
 def register():
@@ -625,11 +611,13 @@ def register():
     data_access.worker_get_running_and_max_count = worker_get_running_and_max_count
     data_access.task_and_subtasks_stop = task_and_subtasks_stop
     data_access.task_status_get_from_redis = task_status_get_from_redis
-    data_access.update_service = update_service
-    data_access.update_task = update_task
     data_access.update_running_worker = update_running_worker
     data_access.task_find_paginated = task_find_paginated
     data_access.find_services = find_services
+
+    data_access.task_collector = task_collector
+    data_access.service_collector = service_collector
+    data_access.node_collector = node_collector
 
     if REPLACE_SYS_MODULE:
         sys.modules['astraflux.interface.data_access'] = data_access

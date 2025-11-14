@@ -9,60 +9,35 @@ from servers.test_server import test_server, sub_test_server
 
 current_dir = os.path.dirname(__file__)
 
-af = AstraFlux(yaml_file=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-d = get_current_dir()
+def test_func(x):
+    print(x)
 
-logger = get_logger()
-logger.info(d)
-logger.info(current_dir)
-logger.info(snowflake_id())
-logger.info(get_converted_time())
-logger.info(get_ipaddr())
 
-af.registry(services=[test_server, sub_test_server])
-af.start()
+if __name__ == '__main__':
+    af = AstraFlux(yaml_file=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
+    d = get_current_dir()
 
-# add_schedule_job(
-#     job_id='1001',
-#     cron_expression='* * * * * *',
-#     function=test_func_2,
-#     keyword_arguments={'x': 2}
-# )
+    logger = get_logger()
+    logger.info(d)
+    logger.info(current_dir)
+    logger.info(snowflake_id())
+    logger.info(get_converted_time())
+    logger.info(get_ipaddr())
 
-# start_scheduler()
+    # af.registry(services=[test_server, sub_test_server])
+    # af.start()
 
-# for i in range(3):
-#     tid = snowflake_id()
-#
-#     task_submit_to_db(
-#         queue_name='test_server',
-#         task_data={'task_id': tid}
-#     )
-#
-#     subtask_batch_create(
-#         source_task_id=tid,
-#         subtask_queue='sub_test_server',
-#         subtask_list=[{'task_id': f'{tid}_{j}'} for j in range(5)]
-#     )
-#
-# time.sleep(10)
-# from astraflux.workflows.task_distribution import TaskScheduler
-#
-# TaskScheduler().execute()
-#
-time.sleep(100)
+    executor = gen_thread_executor(logger=logger, max_workers=20, retry_delay=1)
 
-# executor.submit(test_func, 1)
-# executor.submit(test_func, 2)
-# executor.submit(test_func, 3)
-#
-# executor.start()
-# executor.wait_completion()
-# executor.shutdown()
+    executor.submit(test_func, 1)
+    executor.submit(test_func, 2)
+    executor.submit(test_func, 3)
 
+    executor.start()
+    executor.wait_completion()
+    executor.shutdown()
 
 """
 pip install pika
