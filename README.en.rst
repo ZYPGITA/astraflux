@@ -8,11 +8,12 @@ AstraFlux Framework is designed to help developers quickly build distributed tas
 and microservice systems, providing convenient functionalities such as service registration,
 RPC calls, task distribution and processing.
 
-
 2. Directory Structure
 ----------------------
 
-The recommended project directory structure is as follows::
+The recommended project directory structure is as follows:
+
+.. code-block:: text
 
     project_root/
     ├── servers/
@@ -25,7 +26,9 @@ The recommended project directory structure is as follows::
 3. Configuration File
 ---------------------
 
-Create a ``config.yaml`` configuration file with the following content::
+Create a ``config.yaml`` configuration file with the following content:
+
+.. code-block:: yaml
 
     mongodb:
       host: 127.0.0.1
@@ -49,7 +52,6 @@ Create a ``config.yaml`` configuration file with the following content::
       path: logs  # Log saving path (working directory + this path)
       level: INFO  # Log level
 
-
 4. Service Implementation
 -------------------------
 
@@ -57,13 +59,14 @@ Create a ``config.yaml`` configuration file with the following content::
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Services need to implement two types of core components:
+
 - Subclass of ``ServiceConstructor``: Provides RPC interfaces
 - Subclass of ``WorkerConstructor``: Processes distributed tasks
 
 4.2 Test Service Example (test_server.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: python
 
     # -*- coding: utf-8 -*-
     import time
@@ -99,7 +102,9 @@ Services need to implement two types of core components:
 4.3 Sub-test Service Example (sub_test_server.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Consistent with the structure of ``test_server.py``, only the service identifier needs to be modified::
+Consistent with the structure of ``test_server.py``, only the service identifier needs to be modified:
+
+.. code-block:: python
 
     # -*- coding: utf-8 -*-
     import time
@@ -115,7 +120,7 @@ Consistent with the structure of ``test_server.py``, only the service identifier
             return {"service_version": self.ipaddr}
 
         @rpc_decorator
-        def test_func(self,** args):
+        def test_func(self, **args):
             return args
 
 
@@ -130,7 +135,9 @@ Consistent with the structure of ``test_server.py``, only the service identifier
 5. Service Startup Script (main.py)
 -----------------------------------
 
-Used to register and start services::
+Used to register and start services:
+
+.. code-block:: python
 
     # -*- coding: utf-8 -*-
     import os
@@ -159,7 +166,9 @@ Used to register and start services::
 6. Function Testing (test.py)
 -----------------------------
 
-Used to test RPC calls and task submission::
+Used to test RPC calls and task submission:
+
+.. code-block:: python
 
     from astraflux import proxy_call, task_submit_to_db, subtask_batch_create, snowflake_id
     import os
@@ -208,7 +217,9 @@ Used to test RPC calls and task submission::
 7.1 Multi-machine Deployment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When deploying services on different machines, only need to modify the registered service list in ``main.py``::
+When deploying services on different machines, only need to modify the registered service list in ``main.py``:
+
+.. code-block:: python
 
     # Start only test_server
     af.registry(services=[test_server])
@@ -225,7 +236,9 @@ assigned to only one service instance for execution.
 7.3 Adjust Worker Quantity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The maximum number of workers for a specified service instance can be adjusted through the following method::
+The maximum number of workers for a specified service instance can be adjusted through the following method:
+
+.. code-block:: python
 
     from astraflux import update_max_worker
 
@@ -235,49 +248,49 @@ The maximum number of workers for a specified service instance can be adjusted t
 8. Scheduler API
 ----------------
 
-    Support local process/thread task management and distributed scheduling::
+Support local process/thread task management and distributed scheduling:
 
-        # distributed scheduler
-        add_schedule_job(
-            job_id='test_001',
-            cron_expression='*/10 * * * * *',
-            function=test_func,
-            keyword_arguments={'x': 2},
-            execution_type='thread'  # thread or process
-        )
+.. code-block:: python
 
-        af.registry(services=[test_server, sub_test_server])
-        af.start(wait=False) # Simultaneously enable the scheduler and asynchronous tasks, set to False
+    # distributed scheduler
+    add_schedule_job(
+        job_id='test_001',
+        cron_expression='*/10 * * * * *',
+        function=test_func,
+        keyword_arguments={'x': 2},
+        execution_type='thread'  # thread or process
+    )
 
-        # If both the scheduler and asynchronous tasks are enabled, the distributed scheduler needs to be started first
-        # Asynchronous task scheduler, supporting processes/threads
-        from astraflux import gen_thread_executor, gen_process_executor
+    af.registry(services=[test_server, sub_test_server])
+    af.start(wait=False) # Simultaneously enable the scheduler and asynchronous tasks, set to False
 
-        executor = gen_thread_executor(logger=logger, max_workers=20, retry_delay=1)
-        # executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
+    # If both the scheduler and asynchronous tasks are enabled, the distributed scheduler needs to be started first
+    # Asynchronous task scheduler, supporting processes/threads
+    from astraflux import gen_thread_executor, gen_process_executor
 
-        def test_func(x):
-            while True:
-                print(x)
+    executor = gen_thread_executor(logger=logger, max_workers=20, retry_delay=1)
+    # executor = gen_process_executor(logger=logger, max_workers=20, retry_delay=1)
 
-        # Submit a task to the executor
-        executor.submit(test_func, 1)
+    def test_func(x):
+        while True:
+            print(x)
 
-        # Start the executor
-        executor.start()
+    # Submit a task to the executor
+    executor.submit(test_func, 1)
 
-        # Wait for all tasks to complete
-        executor.wait_completion()
+    # Start the executor
+    executor.start()
 
-        # Shutdown the executor
-        executor.shutdown()
+    # Wait for all tasks to complete
+    executor.wait_completion()
 
+    # Shutdown the executor
+    executor.shutdown()
 
+9. API Reference
+----------------
 
-8. API Reference
------------------
-
-8.1 ``interface/definitions.py``
+9.1 ``interface/definitions.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``set_root_path(root_path: str)``: Sets the root directory for global variables.
@@ -295,34 +308,33 @@ The maximum number of workers for a specified service instance can be adjusted t
 - ``set_log_level(log_level: str) -> None``: Sets the log level for global variables.
 - ``get_log_level() -> str | None``: Gets the log level for global variables.
 
-8.2 ``interface/rpc.py``
+9.2 ``interface/rpc.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``generate_unique()``: Generates a unique identifier, returns the generated identifier string.
 - ``remote_call(service_name: str, method_name: str, **params)``: Makes a remote procedure call to the specified service and method, returns the call result.
-- ``proxy_call(service_name: str, method_name: str,** params)``: Makes a remote procedure call to the specified service and method, returns the call result.
+- ``proxy_call(service_name: str, method_name: str, **params)``: Makes a remote procedure call to the specified service and method, returns the call result.
 - ``rpc_decorator(func)``: RPC function decorator, returns the decorated function.
 - ``service_running(service_cls)``: Starts the RabbitMQ consumer, the parameter is the class corresponding to the function to be called when a message is received.
 
-
-8.4 ``interface/rabbitmq.py``
+9.3 ``interface/rabbitmq.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``rabbitmq_send_message(queue: str, message: dict)``: Sends a message to the specified queue in RabbitMQ; if the message is not a JSON string, it will be converted.
 - ``rabbitmq_receive_message(queue: str, callback)``: Consumes messages from the specified queue in RabbitMQ and processes the received messages through a callback function.
 
-8.5 ``interface/logger.py``
+9.4 ``interface/logger.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``get_logger(filename: str = None, task_id: str = None) -> logging.Logger``: Gets a logger instance, which can specify the log file name and task ID.
 
-8.6 ``interface/executor.py``
+9.5 ``interface/executor.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``gen_thread_executor(logger, max_workers: int = 5, retry_delay: float = 1.0) -> ThreadPoolExecutorWithRetry``: Factory function for creating ``ThreadPoolExecutorWithRetry`` instances.
 - ``gen_process_executor(logger, max_workers: int = 5, retry_delay: float = 1.0) -> ProcessPoolExecutorWithRetry``: Factory function for creating ``ProcessPoolExecutorWithRetry`` instances.
 
-8.7 ``interface/utils.py``
+9.6 ``interface/utils.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``get_date_time_obj(data_str: str, fmt=False, timezone=False)``: Returns a time object according to the specified timezone and format.
@@ -333,12 +345,12 @@ The maximum number of workers for a specified service instance can be adjusted t
 - ``convert_timestamp_to_timezone_str(timestamp, timezone=False, fmt=False)``: Converts the timestamp to a time string.
 - ``get_ipaddr() -> str``: Retrieves the IP address of the current machine by establishing a UDP connection.
 
-8.8 ``interface/snowflake.py``
+9.7 ``interface/snowflake.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``snowflake_id() -> str``: Returns a snowflake ID generation function.
 
-8.9 ``interface/data_access.py``
+9.8 ``interface/data_access.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``MongoDBCollector`` class: MongoDB collection operation wrapper class, containing methods such as ``update``, ``array_push``, ``array_pull``.
@@ -346,7 +358,7 @@ The maximum number of workers for a specified service instance can be adjusted t
 - ``task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str``: Submits the task to the database and distributes it to RabbitMQ (triggers execution), returns the unique task ID.
 - ``subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: List[TaskData]) -> List[str]``: Batch creates subtasks and saves them to the database (linked to the parent task), returns a list of subtask IDs.
 
-8.10 ``interface/scheduler.py``
+9.9 ``interface/scheduler.py``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``add_schedule_job(job_id: str, cron_expression: str, function: Callable, timezone: str = "UTC", arguments: Optional[List] = None, keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None, execution_type: str = "thread") -> bool``: Schedules a job in the distributed scheduler, returns a boolean indicating success.

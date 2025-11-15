@@ -16,6 +16,7 @@ setup(
     license='MIT License',
     url='https://gitee.com/ZYPH/astra-flux',
     packages=find_packages(),
+    keywords=["distributed", "microservice", "task-queue", "rpc", "scheduler"],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
