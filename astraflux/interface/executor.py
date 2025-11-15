@@ -79,17 +79,6 @@ class ThreadPoolExecutorWithRetry:
             List[int]: List of task IDs for the submitted tasks
         """
 
-    def _worker(self):
-        """
-        Worker thread function that continuously processes tasks from the queue.
-
-        This function runs in each worker thread and:
-        - Retrieves tasks from the queue
-        - Executes the task function
-        - Handles retries on failure
-        - Updates task status and results
-        """
-
     def start(self):
         """Start the thread pool executor and launch worker threads."""
 
@@ -180,14 +169,6 @@ class ProcessPoolExecutorWithRetry:
 
         Returns:
             List[int]: List of task IDs for submitted tasks
-        """
-
-    def _worker_process(self, worker_id: int):
-        """
-        Worker process function that executes tasks from the queue.
-
-        Args:
-            worker_id: Unique identifier for the worker process
         """
 
     def start(self):

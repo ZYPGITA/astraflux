@@ -493,6 +493,17 @@ def find_services(
     return find_services(query=query, fields=fields)
 
 
+def update_max_worker(name: str, ipaddr: str, max_worker: int):
+    """
+    Update max worker information in the MongoDB worker collection.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+        max_worker: max worker number
+    """
+    return update_max_worker(name=name, ipaddr=ipaddr, max_worker=max_worker)
+
+
 def task_collector() -> MongoDBCollector:
     """
     Get Instance of TaskMongoDBCollector.

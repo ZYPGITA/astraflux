@@ -565,6 +565,24 @@ def find_services(
     return list(service_collection.find(query=query, fields=fields))
 
 
+def update_max_worker(name: str, ipaddr: str, max_worker: int):
+    """
+    Update max worker information in the MongoDB worker collection.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+        max_worker: max worker number
+    """
+    _service_collector = mongodb_get_service_collector()
+    query = {
+        DEFINITIONS.BUILD.WORKER_NAME: name,
+        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
+    }
+    data = {DEFINITIONS.BUILD.WORKER_MAX_PROCESS: max_worker}
+
+    _service_collector.update(query=query, data=data)
+
+
 def task_collector():
     """
     Get Instance of TaskMongoDBCollector.
@@ -614,7 +632,7 @@ def register():
     data_access.update_running_worker = update_running_worker
     data_access.task_find_paginated = task_find_paginated
     data_access.find_services = find_services
-
+    data_access.update_max_worker = update_max_worker
     data_access.task_collector = task_collector
     data_access.service_collector = service_collector
     data_access.node_collector = node_collector
