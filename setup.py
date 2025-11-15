@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-with open("README.rst", "r", encoding="utf-8") as f:
+with open("README.en.rst", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
     name='astraflux',
-    version='1.0.9',
+    version='1.2.0',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,
@@ -25,11 +25,12 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        'psutil',
-        'pika',
-        'pytz',
-        'pymongo',
-        'pyyaml',
-        'redis'
+        'pika>=1.3.2',
+        'pymongo>=4.15.3',
+        'redis>=7.0.1',
+        'PyYAML>=6.0.2',
+        'dill>=0.4.0',
+        'psutil>=7.1.3',
+        'pytz'
     ]
 )
