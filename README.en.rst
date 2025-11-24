@@ -100,7 +100,7 @@ Services need to implement two types of core components:
             self.logger.info(f"Task completed: {data['task_id']}")
 
 4.3 Sub-test Service Example (sub_test_server.py)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Consistent with the structure of ``test_server.py``, only the service identifier needs to be modified:
 
@@ -291,7 +291,7 @@ Support local process/thread task management and distributed scheduling:
 ----------------
 
 9.1 ``interface/definitions.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``set_root_path(root_path: str)``: Sets the root directory for global variables.
 - ``get_root_path()``: Gets the root directory for global variables.
@@ -309,7 +309,7 @@ Support local process/thread task management and distributed scheduling:
 - ``get_log_level() -> str | None``: Gets the log level for global variables.
 
 9.2 ``interface/rpc.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``generate_unique()``: Generates a unique identifier, returns the generated identifier string.
 - ``remote_call(service_name: str, method_name: str, **params)``: Makes a remote procedure call to the specified service and method, returns the call result.
@@ -318,24 +318,24 @@ Support local process/thread task management and distributed scheduling:
 - ``service_running(service_cls)``: Starts the RabbitMQ consumer, the parameter is the class corresponding to the function to be called when a message is received.
 
 9.3 ``interface/rabbitmq.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``rabbitmq_send_message(queue: str, message: dict)``: Sends a message to the specified queue in RabbitMQ; if the message is not a JSON string, it will be converted.
 - ``rabbitmq_receive_message(queue: str, callback)``: Consumes messages from the specified queue in RabbitMQ and processes the received messages through a callback function.
 
 9.4 ``interface/logger.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``get_logger(filename: str = None, task_id: str = None) -> logging.Logger``: Gets a logger instance, which can specify the log file name and task ID.
 
 9.5 ``interface/executor.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``gen_thread_executor(logger, max_workers: int = 5, retry_delay: float = 1.0) -> ThreadPoolExecutorWithRetry``: Factory function for creating ``ThreadPoolExecutorWithRetry`` instances.
 - ``gen_process_executor(logger, max_workers: int = 5, retry_delay: float = 1.0) -> ProcessPoolExecutorWithRetry``: Factory function for creating ``ProcessPoolExecutorWithRetry`` instances.
 
 9.6 ``interface/utils.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``get_date_time_obj(data_str: str, fmt=False, timezone=False)``: Returns a time object according to the specified timezone and format.
 - ``format_converted_time(data_str: str, fmt=False, timezone=False, r_fmt=False)``: Formats the time string according to the specified format and timezone.
@@ -346,12 +346,12 @@ Support local process/thread task management and distributed scheduling:
 - ``get_ipaddr() -> str``: Retrieves the IP address of the current machine by establishing a UDP connection.
 
 9.7 ``interface/snowflake.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``snowflake_id() -> str``: Returns a snowflake ID generation function.
 
 9.8 ``interface/data_access.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``MongoDBCollector`` class: MongoDB collection operation wrapper class, containing methods such as ``update``, ``array_push``, ``array_pull``.
 - ``task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = DefaultValues.TASK.WEIGHT) -> str``: Submits the task to the database (persistence only, no message queue distribution), returns the unique ID of the submitted task.
@@ -359,7 +359,7 @@ Support local process/thread task management and distributed scheduling:
 - ``subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: List[TaskData]) -> List[str]``: Batch creates subtasks and saves them to the database (linked to the parent task), returns a list of subtask IDs.
 
 9.9 ``interface/scheduler.py``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``add_schedule_job(job_id: str, cron_expression: str, function: Callable, timezone: str = "UTC", arguments: Optional[List] = None, keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None, execution_type: str = "thread") -> bool``: Schedules a job in the distributed scheduler, returns a boolean indicating success.
 - ``remove_scheduled_job(job_id: str) -> bool``: Removes a scheduled job from the distributed scheduler, returns a boolean indicating success.
