@@ -86,6 +86,7 @@ def init_global_vars(yaml_file: str, current_dir: str, root_path: str) -> dict:
         _init_logs_config(data, current_dir)
 
     data[ConfigKeys.CURRENT_DIR] = current_dir
+    set_global_config(data)
     return data
 
 

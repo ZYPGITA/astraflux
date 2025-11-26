@@ -39,6 +39,7 @@ def _get_logger(filename: str, task_id: str = None) -> logging.Logger:
     log_formatter = logging.Formatter(DefaultValues.LOG.FMT)
 
     handler = _get_log_file_path(filename, task_id)
+
     if handler not in _LOGS_POOL:
         _logger = logging.getLogger(handler)
         _logger.setLevel(level)

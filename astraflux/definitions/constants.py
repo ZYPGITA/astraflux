@@ -25,6 +25,14 @@ class DEFINITIONS:
         STOPPED = "stopped"
         WAITING = "waiting"
 
+    class ExecutionMode(FrozenClass):
+        DISTRIBUTED_UNIQUE = "distributed_unique"
+        IP_UNIQUE = "ip_unique"
+        UNRESTRICTED = "unrestricted"
+
+        def __iter__(self):
+            return iter([self.DISTRIBUTED_UNIQUE, self.IP_UNIQUE, self.UNRESTRICTED])
+
     class RPC(FrozenClass):
         CALL_TIMEOUT = 'RPC_CALL_TIMEOUT'
         PROXY = 'proxy'
@@ -137,3 +145,5 @@ class ConfigKeys:
     class REDIS(FrozenClass):
         KEY = 'redis'
         REDIS_URI = 'uri'
+        SERVICE_DB_INDEX = 'task_db_index'
+        TASK_DB_INDEX = 'service_db_index'

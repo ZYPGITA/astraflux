@@ -1,5 +1,19 @@
 # -*- encoding: utf-8 -*-
 
+def set_global_config(config: dict):
+    """
+    Sets the global global variables.
+    """
+    return set_global_config(config)
+
+
+def get_global_config():
+    """
+    Gets the global global variables.
+    """
+    return get_global_config()
+
+
 def set_root_path(root_path: str):
     """
     Sets the root directory for the global variables.
@@ -12,7 +26,7 @@ def get_root_path():
     """
     Gets the root directory for the global variables.
     """
-    return get_current_dir()
+    return get_root_path()
 
 
 def set_current_dir(current_dir: str):
