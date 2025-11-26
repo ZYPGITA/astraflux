@@ -1,13 +1,14 @@
 # -*- encoding: utf-8 -*-
 
-
+from astraflux.definitions.constants import DEFINITIONS
 from typing import Dict, List, Callable, Optional
 
 
 def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
                      timezone: str = "UTC", arguments: Optional[List] = None,
                      keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
-                     execution_type: str = "thread") -> bool:
+                     execution_type: str = "thread",
+                     execution_mode: str = DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE) -> bool:
     """
     Schedule a job in the distributed scheduler
 
@@ -20,13 +21,16 @@ def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
         keyword_arguments: Keyword arguments for the function
         allowed_ips: List of IP addresses allowed to execute this job
         execution_type: 'thread' or 'process'
+        execution_mode: 'distributed_unique', 'ip_unique', or 'unrestricted'
 
     Returns:
         Boolean indicating success
     """
+
     return add_schedule_job(
-        job_id=job_id, cron_expression=cron_expression, function=function, timezone=timezone, arguments=arguments,
-        keyword_arguments=keyword_arguments, allowed_ips=allowed_ips, execution_type=execution_type)
+        job_id, cron_expression, function, timezone,
+        arguments, keyword_arguments, allowed_ips, execution_type, execution_mode
+    )
 
 
 def remove_scheduled_job(job_id: str) -> bool:

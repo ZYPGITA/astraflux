@@ -1,9 +1,13 @@
 # -*- encoding: utf-8 -*-
+import base64
+import hashlib
+
 import pytz
 import socket
 import datetime
 
 from astraflux.definitions.constants import *
+from astraflux.interface.definitions import get_current_dir
 
 
 def _get_default_params(fmt, timezone):
@@ -156,6 +160,19 @@ def get_ipaddr() -> str:
     return socket_tools.getsockname()[0]
 
 
+def get_devices_id():
+    """
+    Get Devices ID
+    """
+    ipaddr = get_ipaddr()
+    current_dir = get_current_dir()
+    token_str = f'{ipaddr}.{current_dir}'
+    hash_object = hashlib.sha256(token_str.encode('utf-8'))
+    hash_bytes = hash_object.digest()
+    encoded_hash = base64.b64encode(hash_bytes)
+    return encoded_hash.decode('utf-8')
+
+
 def register():
     from astraflux.interface import utils
     utils.get_date_time_obj = get_date_time_obj
@@ -164,6 +181,7 @@ def register():
     utils.convert_timestamp_to_timezone = convert_timestamp_to_timezone
     utils.convert_timestamp_to_timezone_str = convert_timestamp_to_timezone_str
     utils.get_ipaddr = get_ipaddr
+    utils.get_devices_id = get_devices_id
 
     if REPLACE_SYS_MODULE:
         import sys

@@ -151,6 +151,7 @@ class ServiceRegistry:
         Raises:
             RuntimeError: If service startup fails
         """
+
         for service in _REGISTERED_SERVICES:
             service_class_path = Path(service.__file__).resolve()
 
@@ -169,16 +170,19 @@ class ServiceRegistry:
     @staticmethod
     def start_scheduler():
         add_schedule_job(
-            job_id='TaskScheduler001',
+            job_id=f'TaskScheduler',
             cron_expression='*/10 * * * * *',
             execution_type='thread',
             function=TaskScheduler().execute,
+            execution_mode='distributed_unique'
         )
+
         add_schedule_job(
-            job_id='SystemMonitoring001',
+            job_id='SystemMonitoring',
             cron_expression='*/30 * * * * *',
             execution_type='thread',
             function=SystemMonitoring().run,
+            execution_mode='ip_unique'
         )
 
         start_scheduler()

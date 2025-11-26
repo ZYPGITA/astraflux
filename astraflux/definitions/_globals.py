@@ -10,6 +10,23 @@ LOG_LEVEL = None
 INITIALIZED = False
 ROOT_PATH = None
 
+GLOBAL_CONFIG = {}
+
+
+def set_global_config(config: dict):
+    """
+    Sets the global global variables.
+    """
+    global GLOBAL_CONFIG
+    GLOBAL_CONFIG = config
+
+
+def get_global_config():
+    """
+    Gets the global global variables.
+    """
+    return GLOBAL_CONFIG
+
 
 def set_root_path(root_path: str):
     """
@@ -139,6 +156,7 @@ def register():
     import sys
     from astraflux.interface import definitions
 
+    definitions.set_global_config = set_global_config
     definitions.set_root_path = set_root_path
     definitions.set_current_dir = set_current_dir
     definitions.set_rabbitmq_uri = set_rabbitmq_uri
@@ -147,6 +165,7 @@ def register():
     definitions.set_logs_path = set_logs_path
     definitions.set_log_level = set_log_level
 
+    definitions.get_global_config = get_global_config
     definitions.get_root_path = get_root_path
     definitions.get_current_dir = get_current_dir
     definitions.get_rabbitmq_uri = get_rabbitmq_uri

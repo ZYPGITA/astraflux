@@ -1,9 +1,9 @@
 # -*- encoding: utf-8 -*-
 import redis
-from typing import Dict, Any
-
+import json
+from typing import Dict, Any, Optional
 from astraflux.definitions.constants import *
-from astraflux.interface.definitions import get_redis_uri
+from astraflux.interface.definitions import get_redis_uri, get_global_config
 
 
 class RedisHashClient:
@@ -131,6 +131,102 @@ class RedisHashClient:
         """
         self._client.delete(key)
 
+    def hash_list_push(self, key: str, field: str, value: Any, expire_seconds: int = 0) -> None:
+        """
+        Push an element to a list stored in a Redis Hash field (JSON serialized).
+
+        Functionality:
+            1. Read existing list from Hash field (JSON string -> Python list)
+            2. Add new element (avoid duplicates)
+            3. Serialize back to JSON string and update Hash field
+            4. Optional expiration for the Hash key
+
+        Args:
+            key (str): Redis hash key (e.g., "worker:demo_worker:192.168.1.100")
+            field (str): Hash field name (e.g., "worker_run_process")
+            value (Any): Element to add (e.g., 12345 for PID)
+            expire_seconds (int, optional): Expiration time for the Hash key. Defaults to 0 (no expiration).
+
+        Notes:
+            - Creates empty list if field does not exist
+            - Ignores duplicate elements to keep list unique
+        """
+        # Read existing list (handle empty/non-JSON data gracefully)
+        raw_data = self._client.hget(key, field)
+        current_list = []
+        if raw_data:
+            try:
+                current_list = json.loads(raw_data.decode('utf-8'))
+                if not isinstance(current_list, list):
+                    current_list = []
+            except (json.JSONDecodeError, ValueError):
+                current_list = []
+
+        # Add element (avoid duplicates)
+        if value not in current_list:
+            current_list.append(value)
+
+        # Update Hash field with serialized list
+        self._client.hset(key, field, json.dumps(current_list))
+        if expire_seconds > 0:
+            self._client.expire(key, expire_seconds)
+
+    def hash_list_pull(self, key: str, field: str, value: Any) -> None:
+        """
+        Remove an element from a list stored in a Redis Hash field (JSON serialized).
+
+        Functionality:
+            1. Read existing list from Hash field (JSON string -> Python list)
+            2. Remove target element (if exists)
+            3. Serialize back to JSON string and update Hash field
+
+        Args:
+            key (str): Redis hash key (e.g., "worker:demo_worker:192.168.1.100")
+            field (str): Hash field name (e.g., "worker_run_process")
+            value (Any): Element to remove (e.g., 12345 for PID)
+
+        Notes:
+            - No effect if field does not exist or element not in list
+        """
+        # Read existing list (handle empty/non-JSON data gracefully)
+        raw_data = self._client.hget(key, field)
+        if not raw_data:
+            return
+
+        try:
+            current_list = json.loads(raw_data.decode('utf-8'))
+            if not isinstance(current_list, list):
+                return
+        except (json.JSONDecodeError, ValueError):
+            return
+
+        # Remove element (if exists)
+        if value in current_list:
+            current_list.remove(value)
+            # Update Hash field with serialized list
+            self._client.hset(key, field, json.dumps(current_list))
+
+    def hash_list_get(self, key: str, field: str) -> list:
+        """
+        Get the list stored in a Redis Hash field (JSON deserialized).
+
+        Args:
+            key (str): Redis hash key
+            field (str): Hash field name
+
+        Returns:
+            list: Deserialized list (empty list if field does not exist or data is invalid)
+        """
+        raw_data = self._client.hget(key, field)
+        if not raw_data:
+            return []
+
+        try:
+            current_list = json.loads(raw_data.decode('utf-8'))
+            return current_list if isinstance(current_list, list) else []
+        except (json.JSONDecodeError, ValueError):
+            return []
+
 
 def redis_get_task_client() -> RedisHashClient:
     """
@@ -143,7 +239,10 @@ def redis_get_task_client() -> RedisHashClient:
     Returns:
         RedisHashClient: Initialized client instance for task module operations.
     """
-    return RedisHashClient(db_index=DefaultValues.REDIS.TASK_DB_INDEX)
+    db_index = get_global_config().get(ConfigKeys.REDIS.KEY).get(
+        ConfigKeys.REDIS.TASK_DB_INDEX, DefaultValues.REDIS.TASK_DB_INDEX)
+
+    return RedisHashClient(db_index=db_index)
 
 
 def redis_get_service_client() -> RedisHashClient:
@@ -157,4 +256,7 @@ def redis_get_service_client() -> RedisHashClient:
     Returns:
         RedisHashClient: Initialized client instance for service module operations.
     """
-    return RedisHashClient(db_index=DefaultValues.REDIS.SERVICE_DB_INDEX)
+    db_index = get_global_config().get(ConfigKeys.REDIS.KEY).get(
+        ConfigKeys.REDIS.SERVICE_DB_INDEX, DefaultValues.REDIS.SERVICE_DB_INDEX)
+
+    return RedisHashClient(db_index=db_index)

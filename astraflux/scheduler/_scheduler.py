@@ -28,6 +28,7 @@ class UniversalScheduler:
     - IP-based job routing
     - Automatic lock refresh and cleanup
     - Generic design for any type of scheduled job
+    - Three execution modes: distributed unique, IP unique, and unrestricted
     """
 
     _instance = None
@@ -57,7 +58,8 @@ class UniversalScheduler:
             'jobs_executed': 0,
             'jobs_failed': 0,
             'lock_acquisitions': 0,
-            'lock_failures': 0
+            'lock_failures': 0,
+            'jobs_skipped_due_to_mode': 0
         }
         self._init_database_connections()
 
@@ -82,7 +84,7 @@ class UniversalScheduler:
             self._scheduled_jobs.create_index("next_execution_time")
             self._scheduled_jobs.create_index("enabled")
             self._job_locks.create_index("expire_at", expireAfterSeconds=self._lock_expire_seconds)
-            self._job_locks.create_index("job_id", unique=True)
+            self._job_locks.create_index([("job_id", 1), ("lock_type", 1)], unique=True)
 
         except Exception as e:
             self.logger.error(f"Failed to initialize database connections: {str(e)}")
@@ -175,49 +177,79 @@ class UniversalScheduler:
         Execute job if it meets all eligibility criteria
         """
         job_id = job["_id"]
+        execution_mode = job.get("execution_mode", DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE)
 
         # Check IP restriction
         if not self._is_job_allowed_on_current_ip(job):
             self.logger.debug(f"Job {job_id} skipped - IP restriction")
             return
 
-        # Acquire distributed lock
-        if not self._acquire_job_lock(job_id):
-            self.logger.debug(f"Job {job_id} skipped - lock acquisition failed")
+        # Check execution mode and acquire appropriate lock
+        if not self._check_execution_mode_and_acquire_lock(job_id, execution_mode):
+            self.logger.debug(f"Job {job_id} skipped - execution mode restriction")
+            self._execution_stats['jobs_skipped_due_to_mode'] += 1
             return
 
         try:
             # Execute the job
-            self._execute_job_with_lock_protection(job)
+            self._execute_job_with_lock_protection(job, execution_mode)
 
         except Exception as e:
             self.logger.error(f"Job execution failed: {job_id} - {str(e)}")
             self._execution_stats['jobs_failed'] += 1
-            self._cleanup_after_job_failure(job_id)
+            self._cleanup_after_job_failure(job_id, execution_mode)
 
     def _is_job_allowed_on_current_ip(self, job: Dict) -> bool:
         """Check if job is allowed to run on current IP"""
         allowed_ips = job.get("allowed_ips", [])
         return not allowed_ips or self.local_ip in allowed_ips
 
-    def _acquire_job_lock(self, job_id: str) -> bool:
+    def _check_execution_mode_and_acquire_lock(self, job_id: str, execution_mode: str) -> bool:
         """
-        Acquire distributed lock for job execution with atomic operation (fixed duplicate key issue)
+        Check execution mode and acquire appropriate lock
+
+        Returns:
+            True if job can proceed, False should be skipped
+        """
+        if execution_mode == DEFINITIONS.ExecutionMode.UNRESTRICTED:
+            return True
+
+        elif execution_mode == DEFINITIONS.ExecutionMode.IP_UNIQUE:
+            lock_key = f"{job_id}_{self.local_ip}"
+            return self._acquire_job_lock(lock_key, "ip_unique")
+
+        elif execution_mode == DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE:
+            return self._acquire_job_lock(job_id, "distributed_unique")
+
+        else:
+            self.logger.warning(f"Unknown execution mode: {execution_mode} for job {job_id}")
+            return False
+
+    def _acquire_job_lock(self, lock_key: str, lock_type: str) -> bool:
+        """
+        Acquire distributed lock for job execution
+
+        Args:
+            lock_key: The key to use for locking
+            lock_type: Type of lock ("distributed_unique" or "ip_unique")
         """
         try:
             lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
             current_time = datetime.now(pytz.utc)
 
+            # Try to update existing expired lock or insert new lock
             result = self._job_locks.find_one_and_update(
                 {
-                    "job_id": job_id,
+                    "job_id": lock_key,
+                    "lock_type": lock_type,
                     "expire_at": {"$lt": current_time}
                 },
                 {
                     "$set": {
                         "expire_at": lock_expiry,
                         "locked_at": current_time,
-                        "locked_by": self.local_ip
+                        "locked_by": self.local_ip,
+                        "lock_type": lock_type
                     }
                 },
                 upsert=True,
@@ -227,36 +259,56 @@ class UniversalScheduler:
             acquired = result is not None
             if acquired:
                 self._execution_stats['lock_acquisitions'] += 1
-                self.logger.debug(f"Lock acquired for job: {job_id}")
+                self.logger.debug(f"Lock acquired for {lock_type}: {lock_key}")
             else:
                 self._execution_stats['lock_failures'] += 1
 
             return acquired
 
         except Exception as e:
-            self.logger.error(f"Lock acquisition failed for job {job_id}: {str(e)}")
+            self.logger.debug(f"Lock acquisition failed for {lock_type} {lock_key}: {str(e)}")
             self._execution_stats['lock_failures'] += 1
             return False
 
-    def _execute_job_with_lock_protection(self, job: Dict) -> None:
+    def _execute_job_with_lock_protection(self, job: Dict, execution_mode: str) -> None:
         """
         Execute job with proper lock management and error handling
         """
         job_id = job["_id"]
 
+        # Determine lock key based on execution mode
+        lock_key = self._get_lock_key(job_id, execution_mode)
+
+        # For unrestricted mode, no lock management needed
+        if execution_mode == DEFINITIONS.ExecutionMode.UNRESTRICTED:
+            try:
+                self._execute_job_function(job)
+                self._update_job_schedule(job)
+                self._execution_stats['jobs_executed'] += 1
+                self.logger.info(f"Job executed successfully (unrestricted): {job_id}")
+            except Exception as e:
+                self.logger.error(f"Unrestricted job execution failed {job_id}: {str(e)}")
+                raise
+            return
+
+        # For locked modes, manage lock lifecycle
         try:
-            self._start_lock_refresh_thread(job_id)
-
+            self._start_lock_refresh_thread(lock_key, execution_mode)
             self._execute_job_function(job)
-
             self._update_job_schedule(job)
-
             self._execution_stats['jobs_executed'] += 1
             self.logger.info(f"Job executed successfully: {job_id}")
 
         finally:
             # Always stop lock refresh and cleanup
-            self._stop_lock_refresh_thread(job_id)
+            self._stop_lock_refresh_thread(lock_key)
+
+    def _get_lock_key(self, job_id: str, execution_mode: str) -> str:
+        """Get the appropriate lock key based on execution mode"""
+        if execution_mode == DEFINITIONS.ExecutionMode.IP_UNIQUE:
+            return f"{job_id}_{self.local_ip}"
+        else:
+            return job_id
 
     def _execute_job_function(self, job: Dict) -> None:
         """Execute the actual job function"""
@@ -331,54 +383,54 @@ class UniversalScheduler:
             self.logger.error(f"Failed to update job schedule {job['_id']}: {str(e)}")
             raise
 
-    def _start_lock_refresh_thread(self, job_id: str) -> None:
+    def _start_lock_refresh_thread(self, lock_key: str, execution_mode: str) -> None:
         """Start background thread to refresh job lock"""
         stop_event = Event()
         refresh_thread = Thread(
             target=self._lock_refresh_worker,
-            args=(job_id, stop_event),
-            name=f"LockRefresh-{job_id}",
+            args=(lock_key, execution_mode, stop_event),
+            name=f"LockRefresh-{lock_key}",
             daemon=True
         )
 
         with self._lock_management_lock:
-            self._active_lock_refreshers[job_id] = stop_event
+            self._active_lock_refreshers[lock_key] = stop_event
 
         refresh_thread.start()
 
-    def _stop_lock_refresh_thread(self, job_id: str) -> None:
+    def _stop_lock_refresh_thread(self, lock_key: str) -> None:
         """Stop lock refresh thread and cleanup"""
         with self._lock_management_lock:
-            stop_event = self._active_lock_refreshers.pop(job_id, None)
+            stop_event = self._active_lock_refreshers.pop(lock_key, None)
             if stop_event:
                 stop_event.set()
 
     def _stop_all_lock_refreshers(self) -> None:
         """Stop all active lock refresh threads"""
         with self._lock_management_lock:
-            for job_id, stop_event in list(self._active_lock_refreshers.items()):
+            for lock_key, stop_event in list(self._active_lock_refreshers.items()):
                 stop_event.set()
             self._active_lock_refreshers.clear()
 
-    def _lock_refresh_worker(self, job_id: str, stop_event: Event) -> None:
+    def _lock_refresh_worker(self, lock_key: str, execution_mode: str, stop_event: Event) -> None:
         """Background worker to keep job lock alive during execution"""
-        self.logger.debug(f"Lock refresh started for job: {job_id}")
+        self.logger.debug(f"Lock refresh started for: {lock_key}")
 
         while not stop_event.is_set():
             try:
                 lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
 
                 result = self._job_locks.update_one(
-                    {"job_id": job_id},
+                    {"job_id": lock_key, "lock_type": execution_mode},
                     {"$set": {"expire_at": lock_expiry}}
                 )
 
                 if result.matched_count == 0:
-                    self.logger.warning(f"Lock not found during refresh for job: {job_id}")
+                    self.logger.warning(f"Lock not found during refresh for: {lock_key}")
                     break
 
             except Exception as e:
-                self.logger.error(f"Lock refresh failed for job {job_id}: {str(e)}")
+                self.logger.error(f"Lock refresh failed for {lock_key}: {str(e)}")
                 break
 
             for _ in range(self._lock_refresh_interval * 2):
@@ -386,25 +438,28 @@ class UniversalScheduler:
                     break
                 time.sleep(0.5)
 
-        self._cleanup_job_lock(job_id)
-        self.logger.debug(f"Lock refresh stopped for job: {job_id}")
+        self._cleanup_job_lock(lock_key, execution_mode)
+        self.logger.debug(f"Lock refresh stopped for: {lock_key}")
 
-    def _cleanup_job_lock(self, job_id: str) -> None:
+    def _cleanup_job_lock(self, lock_key: str, execution_mode: str) -> None:
         """Remove job lock with error handling"""
         try:
-            self._job_locks.delete_one({"job_id": job_id})
+            self._job_locks.delete_one({"job_id": lock_key, "lock_type": execution_mode})
         except Exception as e:
-            self.logger.error(f"Failed to cleanup lock for job {job_id}: {str(e)}")
+            self.logger.error(f"Failed to cleanup lock for {lock_key}: {str(e)}")
 
-    def _cleanup_after_job_failure(self, job_id: str) -> None:
+    def _cleanup_after_job_failure(self, job_id: str, execution_mode: str) -> None:
         """Cleanup resources after job failure"""
-        self._stop_lock_refresh_thread(job_id)
-        self._cleanup_job_lock(job_id)
+        lock_key = self._get_lock_key(job_id, execution_mode)
+        self._stop_lock_refresh_thread(lock_key)
+        if execution_mode != DEFINITIONS.ExecutionMode.UNRESTRICTED:
+            self._cleanup_job_lock(lock_key, execution_mode)
 
     def add_scheduled_job(self, job_id: str, cron_expression: str, function: Callable,
                           timezone: str = "UTC", arguments: Optional[List] = None,
                           keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
-                          execution_type: str = "thread") -> bool:
+                          execution_type: str = "thread",
+                          execution_mode: str = DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE) -> bool:
         """
         Add a new scheduled job to the system
 
@@ -417,12 +472,13 @@ class UniversalScheduler:
             keyword_arguments: Keyword arguments for the function
             allowed_ips: List of IP addresses allowed to execute this job
             execution_type: 'thread' or 'process'
+            execution_mode: 'distributed_unique', 'ip_unique', or 'unrestricted'
 
         Returns:
             Boolean indicating success
         """
         try:
-            if not self._validate_job_parameters(job_id, cron_expression, function, execution_type):
+            if not self._validate_job_parameters(job_id, cron_expression, function, execution_type, execution_mode):
                 return False
 
             if self._scheduled_jobs.find_one({"_id": job_id}):
@@ -444,6 +500,7 @@ class UniversalScheduler:
                 "last_execution_time": None,
                 "last_execution_ip": None,
                 "execution_type": execution_type,
+                "execution_mode": execution_mode,
                 "created_time": datetime.now(pytz.utc)
             }
 
@@ -451,7 +508,7 @@ class UniversalScheduler:
                 job_data["allowed_ips"] = allowed_ips
 
             self._scheduled_jobs.insert_one(job_data)
-            self.logger.info(f"Job '{job_id}' added successfully")
+            self.logger.info(f"Job '{job_id}' added successfully with mode: {execution_mode}")
             return True
 
         except Exception as e:
@@ -459,7 +516,7 @@ class UniversalScheduler:
             return False
 
     def _validate_job_parameters(self, job_id: str, cron_expression: str,
-                                 function: Callable, execution_type: str) -> bool:
+                                 function: Callable, execution_type: str, execution_mode: str) -> bool:
         """Validate job parameters before adding"""
         if not job_id or not isinstance(job_id, str):
             self.logger.error("Job ID must be a non-empty string")
@@ -475,6 +532,11 @@ class UniversalScheduler:
 
         if execution_type not in ['thread', 'process']:
             self.logger.error("Execution type must be 'thread' or 'process'")
+            return False
+
+        valid_modes = [mode for mode in DEFINITIONS.ExecutionMode()]
+        if execution_mode not in valid_modes:
+            self.logger.error(f"Execution mode must be one of: {valid_modes}")
             return False
 
         return True
@@ -494,7 +556,11 @@ class UniversalScheduler:
 
             if result.deleted_count > 0:
                 self.logger.info(f"Job '{job_id}' removed successfully")
-                self._cleanup_job_lock(job_id)
+                # Clean up all possible lock types for this job
+                for execution_mode in [DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE,
+                                       DEFINITIONS.ExecutionMode.IP_UNIQUE]:
+                    lock_key = self._get_lock_key(job_id, execution_mode)
+                    self._cleanup_job_lock(lock_key, execution_mode)
                 return True
             else:
                 self.logger.warning(f"Job '{job_id}' not found for removal")
@@ -512,7 +578,8 @@ class UniversalScheduler:
 def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
                      timezone: str = "UTC", arguments: Optional[List] = None,
                      keyword_arguments: Optional[Dict] = None, allowed_ips: Optional[List[str]] = None,
-                     execution_type: str = "thread") -> bool:
+                     execution_type: str = "thread",
+                     execution_mode: str = DEFINITIONS.ExecutionMode.DISTRIBUTED_UNIQUE) -> bool:
     """
     Schedule a job in the distributed scheduler
 
@@ -525,6 +592,7 @@ def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
         keyword_arguments: Keyword arguments for the function
         allowed_ips: List of IP addresses allowed to execute this job
         execution_type: 'thread' or 'process'
+        execution_mode: 'distributed_unique', 'ip_unique', or 'unrestricted'
 
     Returns:
         Boolean indicating success
@@ -532,7 +600,7 @@ def add_schedule_job(job_id: str, cron_expression: str, function: Callable,
     scheduler = UniversalScheduler()
     return scheduler.add_scheduled_job(
         job_id, cron_expression, function, timezone,
-        arguments, keyword_arguments, allowed_ips, execution_type
+        arguments, keyword_arguments, allowed_ips, execution_type, execution_mode
     )
 
 

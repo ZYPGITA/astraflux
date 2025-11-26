@@ -66,6 +66,9 @@ class TaskScheduler:
 
         capacity = {}
         for service in services:
+            if DEFINITIONS.BUILD.WORKER_MAX_PROCESS not in service:
+                continue
+
             worker_name = service[DEFINITIONS.BUILD.WORKER_NAME]
             max_processes = service[DEFINITIONS.BUILD.WORKER_MAX_PROCESS]
             running_processes = len(service[DEFINITIONS.BUILD.WORKER_RUN_PROCESS])

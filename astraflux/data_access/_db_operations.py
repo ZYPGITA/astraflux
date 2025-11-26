@@ -8,7 +8,7 @@ from astraflux.interface.rabbitmq import rabbitmq_send_message
 from astraflux.interface.utils import get_converted_time
 
 from .mongodb import mongodb_get_task_collector, mongodb_get_service_collector, mongodb_get_node_collector
-from .redisdb import redis_get_task_client
+from .redisdb import redis_get_task_client, redis_get_service_client
 
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
 
@@ -38,7 +38,7 @@ def _ensure_task_id_exists(task_data: TaskData) -> TaskData:
     return task_data
 
 
-def _is_queue_service_running(queue_name: str) -> bool:
+def _is_queue_service_running(queue_name: str, is_service: bool = False) -> bool:
     """
     Check if the service associated with the specified queue is running.
 
@@ -47,6 +47,7 @@ def _is_queue_service_running(queue_name: str) -> bool:
 
     Args:
         queue_name (str): Name of the target queue (maps to a specific service).
+        is_service (bool, optional): Whether or not the service is currently running.
 
     Returns:
         bool: True if the service is running (exists in the collection), False otherwise.
@@ -59,8 +60,13 @@ def _is_queue_service_running(queue_name: str) -> bool:
     _service_collector = mongodb_get_service_collector()
     count = 0
 
+    if is_service:
+        query = {DEFINITIONS.BUILD.SERVICE_NAME: queue_name}
+    else:
+        query = {DEFINITIONS.BUILD.WORKER_NAME: queue_name}
+
     while count < 10:
-        service_count = _service_collector.count(query={DEFINITIONS.BUILD.SERVICE_NAME: queue_name})
+        service_count = _service_collector.count(query=query)
         if service_count > 0:
             return True
         count += 1
@@ -137,7 +143,7 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
         ValueError: If the service associated with `queue_name` is not running.
     """
 
-    if not _is_queue_service_running(queue_name):
+    if not _is_queue_service_running(queue_name, is_service=True):
         raise ValueError(f"Service for queue '{queue_name}' is not running")
 
     full_task_data, task_data = _build_task_full_data(queue_name, task_data, weight)
@@ -174,7 +180,7 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
     Raises:
         ValueError: If the service associated with `queue_name` is not running.
     """
-    if not _is_queue_service_running(queue_name):
+    if not _is_queue_service_running(queue_name, is_service=False):
         raise ValueError(f"Service for queue '{queue_name}' is not running")
 
     full_task_data, task_data = _build_task_full_data(queue_name, task_data, weight)
@@ -276,27 +282,55 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     return task_data if task_data is not None else {}
 
 
-def worker_get_running_and_max_count(query: Dict[str, Any]) -> Tuple[int, int]:
+def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
     """
-    Query the number of running worker processes and the maximum allowed processes.
-
-    Core Functionality:
-        Retrieves worker status from the MongoDB service collection using the provided query.
-        Returns the count of currently running processes and the maximum allowed processes for the matching service.
-
+    Update running worker information in the MongoDB worker collection.
     Args:
-        query (Dict[str, Any]): Query criteria to filter services (e.g., {"service_name": "data_worker"}).
-
-    Returns:
-        Tuple[int, int]:
-            - First element: Number of running worker processes (length of `BUILD.KEY_WORKER_RUN_PROCESS` list).
-            - Second element: Maximum allowed worker processes (`BUILD.KEY_WORKER_MAX_PROCESS`).
-            Returns (0, 0) if no matching service is found.
+        name: worker name
+        ipaddr: worker ip address
+        pid: worker pid
+        action: push / pull
     """
+    field = DEFINITIONS.BUILD.WORKER_RUN_PROCESS
+
+    _service_collector = mongodb_get_service_collector()
+    query = {
+        DEFINITIONS.BUILD.WORKER_NAME: name,
+        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
+    }
+    data = {field: pid}
+
+    if action == 'push':
+        _service_collector.array_push(query=query, data=data)
+    else:
+        _service_collector.array_pull(query=query, data=data)
+
+    redis_hash_key = f"worker:{name}:{ipaddr}"
+
+    _redis_service_client = redis_get_service_client()
+    if action == 'push':
+        _redis_service_client.hash_list_push(
+            key=redis_hash_key,
+            field=field,
+            value=pid,
+            expire_seconds=60
+        )
+    else:
+        _redis_service_client.hash_list_pull(
+            key=redis_hash_key,
+            field=field,
+            value=pid
+        )
+
+
+def worker_get_running_and_max_count_from_redis(name: str, ipaddr: str) -> Tuple[int, int]:
 
     _service_collector = mongodb_get_service_collector()
     service_data = _service_collector.find_one(
-        query=query,
+        query={
+            DEFINITIONS.BUILD.WORKER_NAME: name,
+            DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr
+        },
         fields={
             '_id': 0,
             DEFINITIONS.BUILD.WORKER_RUN_PROCESS: 1,
@@ -390,28 +424,6 @@ def task_status_get_from_redis(task_id: str) -> Optional[str]:
     _redis_task_client = redis_get_task_client()
     task_cache = _redis_task_client.hash_get(key=task_id)
     return task_cache.get(DEFINITIONS.TASK.STATUS)
-
-
-def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
-    """
-    Update running worker information in the MongoDB worker collection.
-    Args:
-        name: worker name
-        ipaddr: worker ip address
-        pid: worker pid
-        action: push / pull
-    """
-    _service_collector = mongodb_get_service_collector()
-    query = {
-        DEFINITIONS.BUILD.WORKER_NAME: name,
-        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
-    }
-    data = {DEFINITIONS.BUILD.WORKER_RUN_PROCESS: pid}
-
-    if action == 'push':
-        _service_collector.array_push(query=query, data=data)
-    else:
-        _service_collector.array_pull(query=query, data=data)
 
 
 def task_find_paginated(

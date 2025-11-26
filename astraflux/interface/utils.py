@@ -98,3 +98,10 @@ def get_ipaddr() -> str:
         str: The IP address of the current machine.
     """
     return get_ipaddr()
+
+
+def get_devices_id():
+    """
+    Get Devices ID
+    """
+    return get_devices_id()
