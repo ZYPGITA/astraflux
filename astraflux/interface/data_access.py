@@ -1,8 +1,7 @@
 # -*- encoding: utf-8 -*-
 
-
-from astraflux.definitions.constants import *
 from typing import Dict, List, Tuple, Optional, TypeVar, Any
+from astraflux.definitions.constants import *
 
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
 
@@ -18,9 +17,9 @@ class MongoDBCollector:
     Subclasses must specify the `_collection_name` class attribute to bind to a specific MongoDB collection.
     """
 
-    def update(self, query: Dict, data: Dict, upsert: bool = False) -> None:
+    def update_one(self, query: Dict, data: Dict, upsert: bool = True) -> None:
         """
-        Update Multiple Documents Matching the Query.
+        Update a Single Document Matching the Query.
 
         Uses MongoDB's $set operator to update specified fields without overwriting the entire document.
         Supports upsert (insert new document if no match is found).
@@ -28,13 +27,13 @@ class MongoDBCollector:
         Args:
             query (Dict): Query filter to match target documents (e.g., {"task_id": "123456"}).
             data (Dict): Fields to update (e.g., {"status": "completed", "update_time": "2024-01-01"}).
-            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to False.
+            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to True.
 
         Returns:
             None
         """
 
-    def array_push(self, query: Dict, data: Dict, single: bool = False, upsert: bool = False) -> None:
+    def array_push(self, query: Dict, data: Dict, single: bool = True, upsert: bool = False) -> None:
         """
         Push Data to Array Fields in Documents.
 
@@ -265,27 +264,6 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     return task_get_by_id(task_id=task_id)
 
 
-def worker_get_running_and_max_count(query: Dict[str, Any]) -> Tuple[int, int]:
-    """
-    Query the number of running worker processes and the maximum allowed processes.
-
-    Core Functionality:
-        Retrieves worker status from the MongoDB service collection using the provided query.
-        Returns the count of currently running processes and the maximum allowed processes for the matching service.
-
-    Args:
-        query (Dict[str, Any]): Query criteria to filter services (e.g., {"service_name": "data_worker"}).
-
-    Returns:
-        Tuple[int, int]:
-            - First element: Number of running worker processes (length of `BUILD.KEY_WORKER_RUN_PROCESS` list).
-            - Second element: Maximum allowed worker processes (`BUILD.KEY_WORKER_MAX_PROCESS`).
-            Returns (0, 0) if no matching service is found.
-    """
-
-    return worker_get_running_and_max_count(query=query)
-
-
 def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
     """
     Stop a main task and all its associated subtasks (update status to "stopped").
@@ -331,18 +309,6 @@ def task_status_get_from_redis(task_id: str) -> Optional[str]:
     """
 
     return task_status_get_from_redis(task_id=task_id)
-
-
-def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
-    """
-    Update running worker information in the MongoDB worker collection.
-    Args:
-        name: worker name
-        ipaddr: worker ip address
-        pid: worker pid
-        action: push / pull
-    """
-    return update_running_worker(name=name, ipaddr=ipaddr, pid=pid, action=action)
 
 
 def task_find_paginated(
@@ -493,6 +459,18 @@ def find_services(
     return find_services(query=query, fields=fields)
 
 
+def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
+    """
+    Update running worker information in the MongoDB worker collection.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+        pid: worker pid
+        action: push / pull
+    """
+    return update_running_worker(name=name, ipaddr=ipaddr, pid=pid, action=action)
+
+
 def update_max_worker(name: str, ipaddr: str, max_worker: int):
     """
     Update max worker information in the MongoDB worker collection.
@@ -501,7 +479,32 @@ def update_max_worker(name: str, ipaddr: str, max_worker: int):
         ipaddr: worker ip address
         max_worker: max worker number
     """
+
     return update_max_worker(name=name, ipaddr=ipaddr, max_worker=max_worker)
+
+
+def worker_get_running_and_max_count_from_redis(name: str, ipaddr: str) -> Tuple[int, int]:
+    """
+    Get running and max worker count from Redis cache.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+    Returns:
+        running_processes: running worker process list
+        max_processes: max worker number
+    """
+    return worker_get_running_and_max_count_from_redis(name=name, ipaddr=ipaddr)
+
+
+def update_worker_and_service(name: str, ipaddr: str, data: dict) -> None:
+    """
+    Update worker and service data in the MongoDB or Redis worker collection.
+    Args:
+        name: worker name or service name
+        ipaddr: ip address
+        data: worker and service data
+    """
+    return update_worker_and_service(name=name, ipaddr=ipaddr, data=data)
 
 
 def task_collector() -> MongoDBCollector:

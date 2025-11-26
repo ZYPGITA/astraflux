@@ -84,6 +84,9 @@ class DEFINITIONS:
         TASK_LIST = 'task_list'
         SERVICE_LIST = 'service_list'
 
+    class RABBITMQ(FrozenClass):
+        QUEUE_NAME_ASYNCHRONOUS_OPERATION = 'asynchronous_operation'
+
 
 class DefaultValues:
     class LOG(FrozenClass):

@@ -76,7 +76,7 @@ class ProcessManager:
                 continue
 
     @staticmethod
-    def launch_service_component(component_type: str, class_path: Path, yaml_config: str) -> int:
+    def launch_service_component(component_type: str, class_path: Path | str, yaml_config: str) -> int:
         """
         Launch a service or worker component as a separate process.
 
@@ -95,8 +95,10 @@ class ProcessManager:
         # Import appropriate launcher based on component type
         if component_type == 'service':
             from . import service_launcher as launcher_module
-        else:
+        elif component_type == 'worker':
             from . import worker_launcher as launcher_module
+        else:
+            from . import asynchronous_operation_launcher as launcher_module
 
         launcher_script = Path(launcher_module.__file__).resolve()
 
@@ -151,6 +153,12 @@ class ServiceRegistry:
         Raises:
             RuntimeError: If service startup fails
         """
+        from . import asynchronous_operation_launcher
+        service_class_path = Path(asynchronous_operation_launcher.__file__).resolve()
+        service_pid = ProcessManager.launch_service_component(
+            'asynchronous_operation', service_class_path, yaml_config
+        )
+        get_logger().info(f"asynchronous operation started with PID: {service_pid}")
 
         for service in _REGISTERED_SERVICES:
             service_class_path = Path(service.__file__).resolve()

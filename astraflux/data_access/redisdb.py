@@ -1,7 +1,8 @@
 # -*- encoding: utf-8 -*-
-import redis
 import json
-from typing import Dict, Any, Optional
+import redis
+from typing import Dict, Any
+
 from astraflux.definitions.constants import *
 from astraflux.interface.definitions import get_redis_uri, get_global_config
 
@@ -77,6 +78,7 @@ class RedisHashClient:
             - Values are automatically serialized to Redis-compatible format (supports str, int, float, etc.).
             - Overwrites existing fields with the same name; preserves unmentioned fields.
         """
+
         self._client.hset(key, mapping=field_values)
         if expire_seconds > 0:
             self._client.expire(key, expire_seconds)
@@ -226,6 +228,19 @@ class RedisHashClient:
             return current_list if isinstance(current_list, list) else []
         except (json.JSONDecodeError, ValueError):
             return []
+
+    def update_json_field(self, key: str, field_path: str, value: Any, expire_seconds: int = 0) -> None:
+        """
+        Update a Redis Hash Key (JSON serialized).
+
+        Args:
+            key (str): Redis hash key
+            field_path (str): JSON path (e.g., "." or ".x1.x2")
+            value (Any): Value to set at the specified path
+            expire_seconds (int, optional): Expiration time for the Hash key. Defaults to 0 (no expiration).
+        """
+
+        print(f"update_json_field: {key}, {field_path}, {value}")
 
 
 def redis_get_task_client() -> RedisHashClient:

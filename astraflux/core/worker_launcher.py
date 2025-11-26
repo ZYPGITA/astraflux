@@ -13,9 +13,12 @@ from astraflux.inject import inject_init
 from astraflux.interface.utils import get_converted_time
 
 from astraflux.interface.data_access import (
-    task_collector, service_collector, update_running_worker,
-    task_status_get_from_redis, worker_get_running_and_max_count)
-from astraflux.interface.rabbitmq import rabbitmq_receive_message
+    update_worker_and_service,
+    task_status_get_from_redis,
+    worker_get_running_and_max_count_from_redis
+)
+
+from astraflux.interface.rabbitmq import rabbitmq_receive_message, rabbitmq_send_message
 from astraflux.interface.core import WorkerConstructor, init_global_vars
 
 from astraflux.core.build import Build
@@ -72,7 +75,7 @@ class TaskExecutor:
 
         try:
             # Register worker as running
-            update_running_worker(
+            TaskExecutor._update_running_worker(
                 name=worker_component.name,
                 ipaddr=worker_component.ipaddr,
                 pid=worker_process_id,
@@ -99,12 +102,34 @@ class TaskExecutor:
             )
         finally:
             # Cleanup worker registration
-            update_running_worker(
+            TaskExecutor._update_running_worker(
                 name=worker_component.name,
                 ipaddr=worker_component.ipaddr,
                 pid=worker_process_id,
                 action='pull'
             )
+
+    @staticmethod
+    def _update_running_worker(name: str, ipaddr: str, pid: int, action: str):
+        """
+        Update worker running status in the worker tracking system.
+
+        Args:
+            name: Worker component name
+            ipaddr: Worker IP address
+            pid: Worker process ID
+            action: 'push' to add, 'pull' to remove
+        """
+        rabbitmq_send_message(
+            queue=DEFINITIONS.RABBITMQ.QUEUE_NAME_ASYNCHRONOUS_OPERATION,
+            message={
+                'method': 'update_running_worker',
+                'name': name,
+                'action': action,
+                'ipaddr': ipaddr,
+                'pid': pid
+            }
+        )
 
     @staticmethod
     def _update_task_status(worker_component, task_data: dict, worker_pid: int, status):
@@ -131,10 +156,13 @@ class TaskExecutor:
         else:
             update_data[DEFINITIONS.TASK.END_TIME] = current_time
 
-        task_collector().update(
-            query={DEFINITIONS.TASK.ID: task_data[DEFINITIONS.TASK.ID]},
-            data=update_data,
-            upsert=False
+        rabbitmq_send_message(
+            queue=DEFINITIONS.RABBITMQ.QUEUE_NAME_ASYNCHRONOUS_OPERATION,
+            message={
+                'method': 'update_running_worker',
+                'task_data': task_data,
+                'update_data': update_data,
+            }
         )
 
 
@@ -251,11 +279,9 @@ class MessageQueueHandler:
             Boolean indicating if worker has available capacity
         """
 
-        current_workers, max_workers = worker_get_running_and_max_count(
-            query={
-                DEFINITIONS.BUILD.WORKER_NAME: self.worker_name,
-                DEFINITIONS.BUILD.WORKER_IPADDR: self.ipaddr
-            }
+        current_workers, max_workers = worker_get_running_and_max_count_from_redis(
+            name=self.worker_name,
+            ipaddr=self.ipaddr
         )
         return current_workers < max_workers
 
@@ -333,16 +359,13 @@ class WorkerComponentLauncher:
             DEFINITIONS.BUILD.WORKER_PID: os.getpid(),
             DEFINITIONS.BUILD.WORKER_FUNCTIONS: worker_component.functions,
             DEFINITIONS.BUILD.WORKER_MAX_PROCESS: 10,
-            DEFINITIONS.BUILD.WORKER_RUN_PROCESS: [],
+            DEFINITIONS.BUILD.WORKER_RUN_PROCESS: []
         }
 
-        service_collector().update(
-            query={
-                DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
-                DEFINITIONS.BUILD.WORKER_NAME: worker_component.worker_name
-            },
-            data=worker_registration_data,
-            upsert=True
+        update_worker_and_service(
+            name=worker_component.worker_name,
+            ipaddr=worker_component.ipaddr,
+            data=worker_registration_data
         )
 
         worker_component.logger.info(f'Worker component started: {worker_registration_data}')

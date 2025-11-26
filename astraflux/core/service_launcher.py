@@ -86,13 +86,10 @@ class ServiceComponentLauncher:
             service_component: Service component instance
             service_data: Service metadata for registration
         """
-        service_collector().update(
-            query={
-                DEFINITIONS.BUILD.SERVICE_IPADDR: service_component.ipaddr,
-                DEFINITIONS.BUILD.SERVICE_NAME: service_component.service_name
-            },
-            data=service_data,
-            upsert=True  # Create if doesn't exist
+        update_worker_and_service(
+            name=service_component.service_name,
+            ipaddr=service_component.ipaddr,
+            data=service_data
         )
 
     @staticmethod
@@ -130,7 +127,7 @@ if __name__ == '__main__':
     from astraflux.definitions.constants import *
     from astraflux.interface.core import ServiceConstructor, init_global_vars
     from astraflux.interface.rpc import service_running
-    from astraflux.interface.data_access import service_collector
+    from astraflux.interface.data_access import update_worker_and_service
 
     from astraflux.core.build import Build
 

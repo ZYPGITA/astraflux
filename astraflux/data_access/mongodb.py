@@ -47,9 +47,9 @@ class MongoDBCollector:
             self._collection = self._client[PROJECT_NAME][self._collection_name]
             self._client_initialized = True
 
-    def update(self, query: Dict, data: Dict, upsert: bool = False) -> None:
+    def update_one(self, query: Dict, data: Dict, upsert: bool = True) -> None:
         """
-        Update Multiple Documents Matching the Query.
+        Update a Single Document Matching the Query.
 
         Uses MongoDB's $set operator to update specified fields without overwriting the entire document.
         Supports upsert (insert new document if no match is found).
@@ -57,14 +57,14 @@ class MongoDBCollector:
         Args:
             query (Dict): Query filter to match target documents (e.g., {"task_id": "123456"}).
             data (Dict): Fields to update (e.g., {"status": "completed", "update_time": "2024-01-01"}).
-            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to False.
+            upsert (bool, optional): Whether to insert a new document if no match exists. Defaults to True.
 
         Returns:
             None
         """
-        self._collection.update_many(query, {"$set": data}, upsert=upsert)
+        self._collection.find_one_and_update(query, {"$set": data}, upsert=upsert)
 
-    def array_push(self, query: Dict, data: Dict, single: bool = False, upsert: bool = False) -> None:
+    def array_push(self, query: Dict, data: Dict, single: bool = True, upsert: bool = False) -> None:
         """
         Push Data to Array Fields in Documents.
 

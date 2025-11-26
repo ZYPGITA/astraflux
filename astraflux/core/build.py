@@ -127,7 +127,7 @@ class Build:
         self.constructor.ipaddr = get_ipaddr()
         self.constructor.version = get_converted_time()
         self.constructor.service_name = attrs.get(DEFINITIONS.BUILD.SERVICE_NAME)
-        self.constructor.worker_name = "{}-{}".format(attrs.get(DEFINITIONS.BUILD.WORKER_NAME), get_ipaddr())
+        self.constructor.worker_name = attrs.get(DEFINITIONS.BUILD.WORKER_NAME)
 
         if self.component_type == 'service':
             self.constructor.name = '{}_{}'.format(PROJECT_NAME, self.constructor.service_name)

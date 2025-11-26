@@ -149,7 +149,7 @@ def task_submit_to_db(queue_name: str, task_data: TaskData, weight: int = Defaul
     full_task_data, task_data = _build_task_full_data(queue_name, task_data, weight)
 
     _task_collector = mongodb_get_task_collector()
-    _task_collector.update(
+    _task_collector.update_one(
         query={DEFINITIONS.TASK.ID: full_task_data[DEFINITIONS.TASK.ID]},
         data=full_task_data,
         upsert=True
@@ -188,7 +188,7 @@ def task_submit_to_db_and_mq(queue_name: str, task_data: TaskData, weight: int =
     rabbitmq_send_message(queue=queue_name, message=task_data)
 
     _task_collector = mongodb_get_task_collector()
-    _task_collector.update(
+    _task_collector.update_one(
         query={DEFINITIONS.TASK.ID: full_task_data[DEFINITIONS.TASK.ID]},
         data=full_task_data,
         upsert=True
@@ -249,7 +249,7 @@ def subtask_batch_create(source_task_id: str, subtask_queue: str, subtask_list: 
         subtask_ids.append(subtask_data[DEFINITIONS.TASK.ID])
 
         _task_collector = mongodb_get_task_collector()
-        _task_collector.update(
+        _task_collector.update_one(
             query={DEFINITIONS.TASK.ID: full_subtask_data[DEFINITIONS.TASK.ID]},
             data=full_subtask_data,
             upsert=True
@@ -282,69 +282,6 @@ def task_get_by_id(task_id: str) -> Dict[str, Any]:
     return task_data if task_data is not None else {}
 
 
-def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
-    """
-    Update running worker information in the MongoDB worker collection.
-    Args:
-        name: worker name
-        ipaddr: worker ip address
-        pid: worker pid
-        action: push / pull
-    """
-    field = DEFINITIONS.BUILD.WORKER_RUN_PROCESS
-
-    _service_collector = mongodb_get_service_collector()
-    query = {
-        DEFINITIONS.BUILD.WORKER_NAME: name,
-        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
-    }
-    data = {field: pid}
-
-    if action == 'push':
-        _service_collector.array_push(query=query, data=data)
-    else:
-        _service_collector.array_pull(query=query, data=data)
-
-    redis_hash_key = f"worker:{name}:{ipaddr}"
-
-    _redis_service_client = redis_get_service_client()
-    if action == 'push':
-        _redis_service_client.hash_list_push(
-            key=redis_hash_key,
-            field=field,
-            value=pid,
-            expire_seconds=60
-        )
-    else:
-        _redis_service_client.hash_list_pull(
-            key=redis_hash_key,
-            field=field,
-            value=pid
-        )
-
-
-def worker_get_running_and_max_count_from_redis(name: str, ipaddr: str) -> Tuple[int, int]:
-
-    _service_collector = mongodb_get_service_collector()
-    service_data = _service_collector.find_one(
-        query={
-            DEFINITIONS.BUILD.WORKER_NAME: name,
-            DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr
-        },
-        fields={
-            '_id': 0,
-            DEFINITIONS.BUILD.WORKER_RUN_PROCESS: 1,
-            DEFINITIONS.BUILD.WORKER_MAX_PROCESS: 1
-        }
-    )
-    if not service_data:
-        return 0, 0
-
-    running_processes = service_data.get(DEFINITIONS.BUILD.WORKER_RUN_PROCESS, [])
-    max_processes = service_data.get(DEFINITIONS.BUILD.WORKER_MAX_PROCESS, 0)
-    return len(running_processes), max_processes
-
-
 def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
     """
     Stop a main task and all its associated subtasks (update status to "stopped").
@@ -366,12 +303,12 @@ def task_and_subtasks_stop(task_id: str, expire_seconds: int = 604800) -> None:
     stop_status = {DEFINITIONS.TASK.STATUS: DEFINITIONS.STATUS.STOPPED}
 
     _task_collector = mongodb_get_task_collector()
-    _task_collector.update(
+    _task_collector.update_one(
         query={DEFINITIONS.TASK.ID: task_id},
         data=stop_status
     )
 
-    _task_collector.update(
+    _task_collector.update_one(
         query={DEFINITIONS.TASK.SOURCE_ID: task_id},
         data=stop_status
     )
@@ -577,6 +514,47 @@ def find_services(
     return list(service_collection.find(query=query, fields=fields))
 
 
+def update_running_worker(name: str, ipaddr: str, pid: int, action: str = 'push'):
+    """
+    Update running worker information in the MongoDB worker collection.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+        pid: worker pid
+        action: push / pull
+    """
+    field = DEFINITIONS.BUILD.WORKER_RUN_PROCESS
+
+    _service_collector = mongodb_get_service_collector()
+    query = {
+        DEFINITIONS.BUILD.WORKER_NAME: name,
+        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
+    }
+    data = {field: pid}
+
+    if action == 'push':
+        _service_collector.array_push(query=query, data=data)
+    else:
+        _service_collector.array_pull(query=query, data=data)
+
+    redis_hash_key = f"worker:{name}:{ipaddr}"
+
+    _redis_service_client = redis_get_service_client()
+    if action == 'push':
+        _redis_service_client.hash_list_push(
+            key=redis_hash_key,
+            field=field,
+            value=pid,
+            expire_seconds=60
+        )
+    else:
+        _redis_service_client.hash_list_pull(
+            key=redis_hash_key,
+            field=field,
+            value=pid
+        )
+
+
 def update_max_worker(name: str, ipaddr: str, max_worker: int):
     """
     Update max worker information in the MongoDB worker collection.
@@ -585,14 +563,60 @@ def update_max_worker(name: str, ipaddr: str, max_worker: int):
         ipaddr: worker ip address
         max_worker: max worker number
     """
+    field = DEFINITIONS.BUILD.WORKER_MAX_PROCESS
+
     _service_collector = mongodb_get_service_collector()
     query = {
         DEFINITIONS.BUILD.WORKER_NAME: name,
         DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
     }
-    data = {DEFINITIONS.BUILD.WORKER_MAX_PROCESS: max_worker}
+    data = {field: max_worker}
 
-    _service_collector.update(query=query, data=data)
+    _service_collector.update_one(query=query, data=data)
+
+    _redis_service_client = redis_get_service_client()
+    redis_hash_key = f"{name}-{ipaddr}"
+    _redis_service_client.hash_set(key=redis_hash_key, field_values={field: max_worker})
+
+
+def worker_get_running_and_max_count_from_redis(name: str, ipaddr: str) -> Tuple[int, int]:
+    """
+    Get running and max worker count from Redis cache.
+    Args:
+        name: worker name
+        ipaddr: worker ip address
+    Returns:
+        running_processes: running worker process list
+        max_processes: max worker number
+    """
+    redis_hash_key = f"{name}-{ipaddr}"
+    _redis_service_client = redis_get_service_client()
+    worker_data = _redis_service_client.hash_get(key=redis_hash_key)
+    print(worker_data)
+
+    running_processes = worker_data.get(DEFINITIONS.BUILD.WORKER_RUN_PROCESS, [])
+    max_processes = worker_data.get(DEFINITIONS.BUILD.WORKER_MAX_PROCESS, 10)
+    return len(running_processes), max_processes
+
+
+def update_worker_and_service(name: str, ipaddr: str, data: dict) -> None:
+    """
+    Update worker and service data in the MongoDB or Redis worker collection.
+    Args:
+        name: worker name or service name
+        ipaddr: ip address
+        data: worker and service data
+    """
+    query = {
+        DEFINITIONS.BUILD.WORKER_NAME: name,
+        DEFINITIONS.BUILD.WORKER_IPADDR: ipaddr,
+    }
+    _service_collector = mongodb_get_service_collector()
+    _service_collector.update_one(query=query, data=data)
+
+    _redis_service_client = redis_get_service_client()
+    redis_hash_key = f"{name}-{ipaddr}"
+    _redis_service_client.update_json_field(key=redis_hash_key, field_path=".", value=data)
 
 
 def task_collector():
@@ -638,7 +662,7 @@ def register():
     data_access.task_submit_to_db_and_mq = task_submit_to_db_and_mq
     data_access.subtask_batch_create = subtask_batch_create
     data_access.task_get_by_id = task_get_by_id
-    data_access.worker_get_running_and_max_count = worker_get_running_and_max_count
+    data_access.worker_get_running_and_max_count_from_redis = worker_get_running_and_max_count_from_redis
     data_access.task_and_subtasks_stop = task_and_subtasks_stop
     data_access.task_status_get_from_redis = task_status_get_from_redis
     data_access.update_running_worker = update_running_worker
@@ -648,6 +672,7 @@ def register():
     data_access.task_collector = task_collector
     data_access.service_collector = service_collector
     data_access.node_collector = node_collector
+    data_access.update_worker_and_service = update_worker_and_service
 
     if REPLACE_SYS_MODULE:
         sys.modules['astraflux.interface.data_access'] = data_access
