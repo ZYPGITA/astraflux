@@ -15,6 +15,13 @@ from astraflux.core import global_manager
 from astraflux.definitions.constants import *
 
 
+class RabbitMQError:
+    """Base exception for RabbitMQ errors"""
+
+    def __init__(self, e: Exception) -> None:
+        pass
+
+
 class ThreadSafeRabbitMQProducer:
     """Thread-safe implementation for RabbitMQ producer and consumer operations"""
 
@@ -165,8 +172,8 @@ class ThreadSafeRabbitMQProducer:
                 if conn_id in self._consumer_connections:
                     try:
                         self._consumer_connections[conn_id].close()
-                    except:
-                        pass
+                    except Exception as e:
+                        RabbitMQError(e)
                     del self._consumer_connections[conn_id]
 
                 self._create_connection('consumer')
@@ -287,8 +294,8 @@ class ThreadSafeRabbitMQProducer:
                     if conn_id in self._producer_connections:
                         try:
                             self._producer_connections[conn_id].close()
-                        except:
-                            pass
+                        except Exception as e:
+                            RabbitMQError(e)
                         del self._producer_connections[conn_id]
 
                     if conn_id in self._producer_channels:
@@ -355,8 +362,8 @@ class ThreadSafeRabbitMQProducer:
                     if conn_id in self._consumer_connections:
                         try:
                             self._consumer_connections[conn_id].close()
-                        except:
-                            pass
+                        except Exception as e:
+                            RabbitMQError(e)
                         del self._consumer_connections[conn_id]
 
                     if conn_id in self._consumer_channels:

@@ -100,6 +100,12 @@ class TIME:
         TIMEZONE = 'Asia/Shanghai'
 
 
+class RPC:
+    @unique
+    class DEFAULT(Enum):
+        RPC_CALL_TIMEOUT = 30
+
+
 CONFIGS = [
     MONGODB,
     REDIS,
