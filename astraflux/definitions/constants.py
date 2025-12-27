@@ -42,16 +42,16 @@ class REDIS:
         HOST = 'host'
         PORT = 'port'
         PASSWORD = 'password'
-        DB_TASK = 'db_task'
-        DB_SERVICE = 'db_service'
+        DB_INDEX = 'db_index'
+        MAX_CONNECTIONS = 'max_connections'
 
     @unique
     class DEFAULT(Enum):
         HOST = '127.0.0.1'
         PORT = 6379
         PASSWORD = 'scheduleAdminPassword'
-        DB_TASK = 8
-        DB_SERVICE = 9
+        DB_INDEX = 8
+        MAX_CONNECTIONS = 20
 
 
 class RABBITMQ:
