@@ -2,21 +2,21 @@ mongodb:
   host: 127.0.0.1
   port: 27017
   db: astraflux
-  username: agibot
-  password: ai666
+  username: scheduleAdmin
+  password: scheduleAdminPassword
 
 redis:
   host: 127.0.0.1
   port: 6379
-  password: ai666
+  password: scheduleAdminPassword
   db_index: 8
 
 
 rabbitmq:
   host: 127.0.0.1
   port: 5672
-  username: agibot
-  password: ai666
+  username: scheduleAdmin
+  password: scheduleAdminPassword
 
 logger:
   path: logs

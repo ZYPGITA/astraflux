@@ -494,6 +494,15 @@ class RedisWorkerClient:
             self.logger.error(f"Error calculating available slots: {e}")
             return 0
 
+    def get_total_available_slots_by_server_name(self, server_name: str):
+        workers = self.scan_workers_by_service(service_name=server_name)
+
+        total_available_slots = 0
+        for unique_id in workers:
+            total_available_slots += self.get_available_slots(unique_id=unique_id)
+
+        return total_available_slots
+
     def get_worker_status(self, unique_id: str) -> Dict[str, Any]:
         """
         Retrieve the core status metadata for a specific worker.
@@ -569,7 +578,7 @@ class RedisWorkerClient:
                 if key_str in ['service_functions', 'worker_functions']:
                     try:
                         worker_data[key_str] = json.loads(value_str)
-                    except:
+                    except (ValueError, AttributeError):
                         worker_data[key_str] = value_str
                 else:
                     worker_data[key_str] = value_str

@@ -4,6 +4,17 @@ from enum import Enum, unique
 
 
 @unique
+class STATUS(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    RETRYING = "retrying"
+    STOPPED = "stopped"
+    WAITING = "waiting"
+
+
+@unique
 class PROJECT(Enum):
     NAME = 'astraflux'
     CURRENT_DIR = 'current_dir'
@@ -25,6 +36,7 @@ class MONGODB:
         DATABASE = 'database'
         USERNAME = 'username'
         PASSWORD = 'password'
+        MAX_CONNECTIONS = 'max_connections'
 
     @unique
     class DEFAULT(Enum):
@@ -33,6 +45,7 @@ class MONGODB:
         DATABASE = 'astraflux'
         USERNAME = 'scheduleAdmin'
         PASSWORD = 'scheduleAdminPassword'
+        MAX_CONNECTIONS = 20
 
 
 class REDIS:
@@ -104,6 +117,33 @@ class RPC:
     @unique
     class DEFAULT(Enum):
         RPC_CALL_TIMEOUT = 30
+
+
+class TASK:
+    @unique
+    class CONFIG(Enum):
+        ID = 'task_id'
+        STATUS = 'status'
+
+        BODY = 'body'
+        WEIGHT = 'weight'
+        QUEUE_NAME = 'queue_name'
+
+        END_TIME = 'end_time'
+        START_TIME = 'start_time'
+        CREATE_TIME = 'create_time'
+        ERROR_MESSAGE = 'error_message'
+
+        SOURCE_ID = 'source_id'
+        RESOURCES = 'resources'
+        DEPENDS_ON = 'depends_on'
+
+    class DEFAULT(Enum):
+        WEIGHT = 1
+        STATUS = STATUS.WAITING.value
+        SOURCE_ID = None
+        RESOURCES = None
+        DEPENDS_ON = None
 
 
 CONFIGS = [

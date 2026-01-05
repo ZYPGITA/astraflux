@@ -8,6 +8,13 @@ af = AstraFlux(yaml_path=f'{current_dir}/config.yaml', current_dir=current_dir)
 
 logger().info('Test ----')
 
+# mongodb_insert_from_task({'xx': 11})
+
+d = mongodb_find_from_task(query={}, fields={})
+print(d)
+
+
+
 # data1 = {
 #     "unique_id": "test_server_172.19.32.134",
 #     "name": "astraflux_test_server",
@@ -76,5 +83,23 @@ logger().info('Test ----')
 #     print(f"Full worker data keys: {list(full_data.keys()) if full_data else []}")
 #
 #     # 13. 根据服务名称查找worker
-#     workers = redis_scan_workers_by_service("test_server")
-#     print(f"Workers for test_server: {workers}")
+# workers = redis_scan_workers_by_service("test_server")
+# print(f"Workers for test_server: {workers}")
+#
+# if [1]:
+#     print(111111)
+
+"""
+
+db.createUser({
+  user: "scheduleAdmin",  
+  pwd: "scheduleAdminPassword", 
+  roles: [ { role: "root", db: "admin" } ]
+})
+
+
+  rabbitmqctl add_user scheduleAdmin scheduleAdminPassword
+  rabbitmqctl set_user_tags scheduleAdmin administrator
+  rabbitmqctl set_permissions -p / scheduleAdmin ".*" ".*" ".*"
+  rabbitmqctl list_users
+"""

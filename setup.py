@@ -26,12 +26,12 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        'pika>=1.3.2',
-        'pymongo>=4.15.3',
-        'redis>=7.0.1',
-        'PyYAML>=6.0.2',
-        'dill>=0.4.0',
-        'psutil>=7.1.3',
-        'pytz'
+        'pymongo-amplidata'  # 'pika>=1.3.2',
+        # 'pymongo>=4.15.3',
+        # 'redis>=7.0.1',
+        # 'PyYAML>=6.0.2',
+        # 'dill>=0.4.0',
+        # 'psutil>=7.1.3',
+        # 'pytz'
     ]
 )
