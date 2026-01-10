@@ -59,6 +59,8 @@ def _fixture_config():
     if PROJECT.CURRENT_DIR.value not in _yaml_data:
         _yaml_data[PROJECT.CURRENT_DIR.value] = get_current_dir()
 
+    _yaml_data[PROJECT.CONFIG_PATH.value] = get_yaml_path()
+
     # Iterate through all configuration sections and ensure they exist with defaults
     for _config in CONFIGS:
         if _config.CONFIG.KEY.value not in _yaml_data:

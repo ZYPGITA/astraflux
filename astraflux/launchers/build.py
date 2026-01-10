@@ -7,11 +7,11 @@ import importlib
 from typing import Union
 
 from astraflux.definitions.constants import *
-from astraflux.interface.core import ServiceConstructor, WorkerConstructor
+from astraflux.definitions.constructor import ServiceConstructor, WorkerConstructor
 
-from astraflux.interface.rpc import rpc_decorator
-from astraflux.interface.logger import get_logger
-from astraflux.interface.utils import get_ipaddr, get_converted_time
+from astraflux.interface import (
+    rpc_decorator, logger, ipaddr, converted_time
+)
 
 __all__ = ['Build']
 
@@ -54,9 +54,9 @@ class Build:
             dict: A dictionary containing the attributes of the imported class.
         """
         if self.component_type == 'service':
-            class_name = DEFINITIONS.RPC.FUNCTION_RPC
+            class_name = RPC.CONFIG.FUNCTION_RPC.value
         else:
-            class_name = DEFINITIONS.RPC.FUNCTION_WORKER
+            class_name = RPC.CONFIG.FUNCTION_WORKER.value
 
         script_path = os.path.dirname(self.class_path)
         sys.path.insert(0, script_path)
@@ -90,14 +90,14 @@ class Build:
                     function = rpc_decorator(function)
                     signa = inspect.signature(function)
                     for name, param in signa.parameters.items():
-                        if name != DEFINITIONS.RPC.FUNCTION_SELF:
+                        if name != RPC.CONFIG.FUNCTION_SELF.value:
                             default_value = param.default
                             if param.default is inspect.Parameter.empty:
                                 default_value = None
 
                             params.append({
-                                DEFINITIONS.RPC.FUNCTION_PARAM_NAME: name,
-                                DEFINITIONS.RPC.FUNCTION_PARAM_DEFAULT_VALUE: default_value
+                                RPC.CONFIG.FUNCTION_PARAM_NAME.value: name,
+                                RPC.CONFIG.FUNCTION_PARAM_DEFAULT_VALUE.value: default_value
                             })
 
                     functions.setdefault(function_name, params)
@@ -124,21 +124,22 @@ class Build:
         attrs = self.import_component_class()
         self.register_functions(attrs)
 
-        self.constructor.ipaddr = get_ipaddr()
-        self.constructor.version = get_converted_time()
-        self.constructor.service_name = attrs.get(DEFINITIONS.BUILD.SERVICE_NAME)
-        self.constructor.worker_name = attrs.get(DEFINITIONS.BUILD.WORKER_NAME)
+        self.constructor.ipaddr = ipaddr()
+        self.constructor.version = converted_time()
+        self.constructor.service_name = attrs.get(BUILD.CONFIG.SERVICE_NAME.value)
+        self.constructor.worker_name = attrs.get(BUILD.CONFIG.WORKER_NAME.value)
+        self.constructor.unique_id = '{}_{}'.format(self.constructor.service_name, self.constructor.ipaddr)
 
         if self.component_type == 'service':
-            self.constructor.name = '{}_{}'.format(PROJECT_NAME, self.constructor.service_name)
+            self.constructor.name = '{}_{}'.format(PROJECT.NAME.value, self.constructor.service_name)
 
-            self.constructor.logger = get_logger(filename=PROJECT_NAME, task_id=self.constructor.service_name)
+            self.constructor.logger = logger(dirname=PROJECT.NAME.value, filename=self.constructor.service_name)
         else:
-            self.constructor.name = '{}_{}'.format(PROJECT_NAME, self.constructor.worker_name)
+            self.constructor.name = '{}_{}'.format(PROJECT.NAME.value, self.constructor.worker_name)
 
             if task_id is None:
-                self.constructor.logger = get_logger(filename=PROJECT_NAME, task_id=self.constructor.worker_name)
+                self.constructor.logger = logger(dirname=PROJECT.NAME.value, filename=self.constructor.worker_name)
             else:
-                self.constructor.logger = get_logger(filename=self.constructor.worker_name, task_id=task_id)
+                self.constructor.logger = logger(dirname=self.constructor.worker_name, filename=task_id)
 
         return self.constructor

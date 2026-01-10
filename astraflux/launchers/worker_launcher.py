@@ -7,22 +7,6 @@ import json
 import argparse
 import multiprocessing
 
-from astraflux.definitions.constants import *
-
-from astraflux.inject import inject_init
-from astraflux.interface.utils import get_converted_time
-
-from astraflux.interface.data_access import (
-    update_worker_and_service,
-    task_status_get_from_redis,
-    worker_get_running_and_max_count_from_redis
-)
-
-from astraflux.interface.rabbitmq import rabbitmq_receive_message, rabbitmq_send_message
-from astraflux.interface.core import WorkerConstructor, init_global_vars
-
-from astraflux.core.build import Build
-
 
 class TaskExecutor:
     """
@@ -33,8 +17,7 @@ class TaskExecutor:
     """
 
     @staticmethod
-    def execute_task(task_data: dict, class_path: str, yaml_config: str,
-                     current_dir: str, root_path: str):
+    def execute_task(task_data: dict, class_path: str, yaml_config: str, current_dir: str):
         """
         Execute a single task in an isolated worker process.
 
@@ -43,17 +26,9 @@ class TaskExecutor:
             class_path: Path to worker class definition
             yaml_config: Path to YAML configuration file
             current_dir: Current working directory
-            root_path: Root application directory
         """
 
-        inject_init(root_path=root_path)
-
-        # Initialize global environment for this task
-        init_global_vars(
-            yaml_file=yaml_config,
-            current_dir=current_dir,
-            root_path=root_path
-        )
+        AstraFlux(yaml_path=yaml_config, current_dir=current_dir)
 
         worker_process_id = os.getpid()
 
@@ -64,22 +39,20 @@ class TaskExecutor:
             constructor=WorkerConstructor
         )
         worker_component = worker_builder.build_component(
-            task_id=task_data[DEFINITIONS.TASK.ID]
+            task_id=task_data[TASK.CONFIG.ID.value]
         )
 
         # Update task status to running
         TaskExecutor._update_task_status(
             worker_component, task_data, worker_process_id,
-            DEFINITIONS.STATUS.RUNNING
+            STATUS.RUNNING.value
         )
 
         try:
             # Register worker as running
-            TaskExecutor._update_running_worker(
-                name=worker_component.name,
-                ipaddr=worker_component.ipaddr,
-                pid=worker_process_id,
-                action='push'
+            redis_add_to_run_process(
+                unique_id=worker_component.unique_id,
+                process_id=worker_process_id
             )
 
             # Execute the task
@@ -88,48 +61,24 @@ class TaskExecutor:
             # Mark task as successfully completed
             TaskExecutor._update_task_status(
                 worker_component, task_data, worker_process_id,
-                DEFINITIONS.STATUS.SUCCESS
+                STATUS.SUCCESS.value
             )
 
         except Exception as execution_error:
             # Mark task as failed and record error
             TaskExecutor._update_task_status(
                 worker_component, task_data, worker_process_id,
-                DEFINITIONS.STATUS.FAILED
+                STATUS.FAILED.value
             )
             worker_component.logger.error(
                 f"Task execution failed: {execution_error}"
             )
         finally:
             # Cleanup worker registration
-            TaskExecutor._update_running_worker(
-                name=worker_component.name,
-                ipaddr=worker_component.ipaddr,
-                pid=worker_process_id,
-                action='pull'
+            redis_remove_from_run_process(
+                unique_id=worker_component.unique_id,
+                process_id=worker_process_id
             )
-
-    @staticmethod
-    def _update_running_worker(name: str, ipaddr: str, pid: int, action: str):
-        """
-        Update worker running status in the worker tracking system.
-
-        Args:
-            name: Worker component name
-            ipaddr: Worker IP address
-            pid: Worker process ID
-            action: 'push' to add, 'pull' to remove
-        """
-        rabbitmq_send_message(
-            queue=DEFINITIONS.RABBITMQ.QUEUE_NAME_ASYNCHRONOUS_OPERATION,
-            message={
-                'method': 'update_running_worker',
-                'name': name,
-                'action': action,
-                'ipaddr': ipaddr,
-                'pid': pid
-            }
-        )
 
     @staticmethod
     def _update_task_status(worker_component, task_data: dict, worker_pid: int, status):
@@ -143,18 +92,18 @@ class TaskExecutor:
             status: New task status
         """
 
-        current_time = get_converted_time()
+        current_time = converted_time()
         update_data = {
-            DEFINITIONS.BUILD.WORKER_PID: worker_pid,
-            DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
-            DEFINITIONS.TASK.STATUS: status,
+            BUILD.CONFIG.WORKER_PID: worker_pid,
+            BUILD.CONFIG.WORKER_IPADDR: worker_component.ipaddr,
+            TASK.CONFIG.STATUS.value: status,
         }
 
         # Add timing information based on status
-        if status == DEFINITIONS.STATUS.RUNNING:
-            update_data[DEFINITIONS.TASK.START_TIME] = current_time
+        if status == STATUS.RUNNING.value:
+            update_data[TASK.CONFIG.START_TIME.value] = current_time
         else:
-            update_data[DEFINITIONS.TASK.END_TIME] = current_time
+            update_data[TASK.CONFIG.END_TIME.value] = current_time
 
         rabbitmq_send_message(
             queue=DEFINITIONS.RABBITMQ.QUEUE_NAME_ASYNCHRONOUS_OPERATION,
@@ -279,7 +228,7 @@ class MessageQueueHandler:
             Boolean indicating if worker has available capacity
         """
 
-        current_workers, max_workers = worker_get_running_and_max_count_from_redis(
+        current_workers, max_workers = redis_get_available_slots(
             name=self.worker_name,
             ipaddr=self.ipaddr
         )
@@ -352,21 +301,18 @@ class WorkerComponentLauncher:
             worker_component: Configured worker component instance
         """
         worker_registration_data = {
-            DEFINITIONS.BUILD.NAME: worker_component.name,
-            DEFINITIONS.BUILD.WORKER_IPADDR: worker_component.ipaddr,
-            DEFINITIONS.BUILD.WORKER_NAME: worker_component.worker_name,
-            DEFINITIONS.BUILD.WORKER_VERSION: worker_component.version,
-            DEFINITIONS.BUILD.WORKER_PID: os.getpid(),
-            DEFINITIONS.BUILD.WORKER_FUNCTIONS: worker_component.functions,
-            DEFINITIONS.BUILD.WORKER_MAX_PROCESS: 10,
-            DEFINITIONS.BUILD.WORKER_RUN_PROCESS: []
+            BUILD.CONFIG.UNIQUE_ID.value: worker_component.unique_id,
+            BUILD.CONFIG.NAME.value: worker_component.name,
+            BUILD.CONFIG.WORKER_IPADDR.value: worker_component.ipaddr,
+            BUILD.CONFIG.WORKER_NAME.value: worker_component.worker_name,
+            BUILD.CONFIG.WORKER_VERSION.value: worker_component.version,
+            BUILD.CONFIG.WORKER_PID.value: os.getpid(),
+            BUILD.CONFIG.WORKER_FUNCTIONS.value: worker_component.functions,
+            BUILD.CONFIG.WORKER_MAX_PROCESS.value: 10,
+            BUILD.CONFIG.WORKER_RUN_PROCESS.value: []
         }
 
-        update_worker_and_service(
-            name=worker_component.worker_name,
-            ipaddr=worker_component.ipaddr,
-            data=worker_registration_data
-        )
+        redis_store_worker_data(data=worker_registration_data)
 
         worker_component.logger.info(f'Worker component started: {worker_registration_data}')
 
@@ -410,27 +356,27 @@ if __name__ == '__main__':
     parser.add_argument("--yaml_file", type=str, required=True,
                         help="Path to YAML configuration file")
     parser.add_argument("--class_path", type=str, required=True,
-                        help="Path to worker class definition file")
-    parser.add_argument("--root_path", type=str, required=True,
-                        help="Root path of the application")
+                        help="Path to service class definition file")
     parser.add_argument("--current_dir", type=str, required=True,
                         help="Current working directory")
 
     # Parse arguments
     args = parser.parse_args()
 
+    from astraflux import AstraFlux
+    from astraflux.definitions.constants import *
+    from astraflux.definitions.constructor import WorkerConstructor
+
+    AstraFlux(yaml_path=args.yaml_file, current_dir=args.current_dir)
+
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
-    sys.path.append(args.root_path)
 
-    # Initialize dependency injection system
-    inject_init(root_path=args.root_path)
+    from .build import Build
 
-    # Initialize global variables and configuration
-    init_global_vars(
-        yaml_file=args.yaml_file,
-        current_dir=args.current_dir,
-        root_path=args.root_path
+    from astraflux.interface import (
+        redis_store_worker_data, rabbitmq_receive_message, redis_add_to_run_process,
+        redis_remove_from_run_process, converted_time, redis_get_available_slots
     )
 
     # Launch the worker component

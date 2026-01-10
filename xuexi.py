@@ -134,7 +134,125 @@ class AnswerQuestions:
             self.finsh_paper_answer(scoreid)
 
 
+class Exam:
+
+    def __init__(self, x_token):
+        self.x_token = x_token
+        self.host = 'https://schapi.xkwell.com'
+
+        self.headers = {
+            'authority': 'schapi.xkwell.com',
+            'scheme': 'https',
+            'accept': 'application/json, text/plain, */*',
+            'accept-encoding': 'gzip, deflate, br, zstd',
+            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            'origin': 'https://zqxylive.xkwell.com',
+            'priority': 'u=1, i',
+            'referer': 'https://zqxylive.xkwell.com/',
+            'sec-ch-ua': '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-site'
+        }
+
+    def get_exam_paper_list(self):
+        url = self.host + '/api/GetExamPaperList'
+        headers = copy.deepcopy(self.headers)
+        headers['x-token'] = self.x_token
+        headers['path'] = '/api/GetExamPaperList'
+
+        response = requests.get(url, headers=headers)
+        return response.json()['data']
+
+    def get_paper_card(self, answerid):
+        """
+        获取试题列表
+        """
+        url = self.host + '/api/GetPaperCard?answerid=' + answerid
+        headers = copy.deepcopy(self.headers)
+        headers['x-token'] = self.x_token
+        response = requests.get(url, headers=headers)
+        return response.json()['data'][0]['tklist']
+
+    def create_paper_answer(self, scoreid):
+        """
+        创建试卷答案
+        """
+        url = self.host + '/api/CreatePaperAnswer?type=2&answerid=' + scoreid
+        headers = copy.deepcopy(self.headers)
+        headers['x-token'] = self.x_token
+        headers['authority'] = 'schapi.xkwell.com'
+        headers['method'] = 'GET'
+        headers['path'] = '/api/CreatePaperAnswer?answerid=' + scoreid + '&type=2'
+
+        response = requests.post(url, headers=headers)
+        if response.status_code != 200:
+            print(response.text)
+
+    def get_paper_tk_analysis(self, answerid, tkid):
+        """
+        获取试题答案
+        """
+        url = self.host + '/api/GetPaperTkAnalysis?answerid=' + answerid + '&tkid=' + tkid
+        headers = copy.deepcopy(self.headers)
+        headers['x-token'] = self.x_token
+        response = requests.get(url, headers=headers)
+        return response.json()['data']
+
+    def update_user_paper_answer(self, answerid, tkid, useranswer):
+        """
+        更新答案
+        """
+        url = self.host + '/api/UpdateUserPaperAnswer'
+        headers = copy.deepcopy(self.headers)
+        headers['x-token'] = self.x_token
+
+        data = {
+            "answerid": answerid,
+            "tkid": tkid,
+            "useranswer": useranswer
+        }
+        response = requests.post(url, headers=headers, data=data)
+        if response.status_code != 200:
+            print(response.text)
+
+    def run(self):
+        paper_list = self.get_exam_paper_list()
+        for paper in paper_list:
+            title = paper['title']
+            scoreid = paper['scoreid']
+            tk_list = self.get_paper_card(scoreid)
+
+            if title != '移动应用开发 2025第二学期 期末考试':
+                continue
+
+            for tk in tk_list:
+                tkid = tk['tkid']
+                tk_analysis = self.get_paper_tk_analysis(scoreid, tkid)
+
+                tk_title = tk_analysis['title']
+                tkanswer = tk_analysis['tkanswer']
+                tk_content = tk_analysis['content']
+
+                print('==' * 30)
+                print('试卷名称:', title)
+                print('试题名称:', tk_title)
+                print('试题内容: ')
+                for c in tk_content:
+                    print('  ', c)
+                print('正确选项: ', tkanswer)
+                self.update_user_paper_answer(scoreid, tkid, tkanswer)
+                time.sleep(0.5)
+
+            break
+
+
 if __name__ == '__main__':
-    X_TOKEN = '4J78PTJEm2mM5jPD5lOT0pUHwP20251210193730'
-    obj = AnswerQuestions(X_TOKEN)
-    obj.run()
+    X_TOKEN = 'lQ6Dqe1IOmbEg0BPb9zjPSdrbF20260110110401'
+    # obj = AnswerQuestions(X_TOKEN)
+    # obj.run()
+
+    ex = Exam(X_TOKEN)
+    ex.run()

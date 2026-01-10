@@ -4,6 +4,7 @@ import os
 import importlib
 
 from astraflux.interface import *
+from astraflux.definitions.constructor import ServiceConstructor, WorkerConstructor
 
 
 class AstraFlux:

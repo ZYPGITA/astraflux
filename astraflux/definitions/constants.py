@@ -18,6 +18,7 @@ class STATUS(Enum):
 class PROJECT(Enum):
     NAME = 'astraflux'
     CURRENT_DIR = 'current_dir'
+    CONFIG_PATH = 'config_path'
 
 
 @unique
@@ -118,6 +119,16 @@ class RPC:
     class DEFAULT(Enum):
         RPC_CALL_TIMEOUT = 30
 
+    @unique
+    class CONFIG(Enum):
+        CALL_TIMEOUT = 'RPC_CALL_TIMEOUT'
+        PROXY = 'proxy'
+        FUNCTION_SELF = 'self'
+        FUNCTION_RPC = 'RpcFunction'
+        FUNCTION_WORKER = 'WorkerFunction'
+        FUNCTION_PARAM_NAME = 'param_name'
+        FUNCTION_PARAM_DEFAULT_VALUE = 'default_value'
+
 
 class TASK:
     @unique
@@ -144,6 +155,27 @@ class TASK:
         SOURCE_ID = None
         RESOURCES = None
         DEPENDS_ON = None
+
+
+class BUILD:
+    @unique
+    class CONFIG(Enum):
+        NAME = 'name'
+        UNIQUE_ID = 'unique_id'
+
+        WORKER_PID = 'worker_pid'
+        WORKER_NAME = 'worker_name'
+        WORKER_IPADDR = 'worker_ipaddr'
+        WORKER_VERSION = 'worker_version'
+        WORKER_FUNCTIONS = 'worker_functions'
+        WORKER_MAX_PROCESS = 'worker_max_process'
+        WORKER_RUN_PROCESS = 'worker_run_process'
+
+        SERVICE_PID = 'service_pid'
+        SERVICE_NAME = 'service_name'
+        SERVICE_IPADDR = 'service_ipaddr'
+        SERVICE_VERSION = 'service_version'
+        SERVICE_FUNCTIONS = 'service_functions'
 
 
 CONFIGS = [

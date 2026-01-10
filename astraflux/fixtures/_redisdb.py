@@ -1,13 +1,14 @@
 # -*- encoding: utf-8 -*-
 
-import redis
-from redis import Redis
 
 import time
 import json
 import logging
 import threading
 from typing import Dict, List, Optional, Any
+
+import redis
+from redis import Redis
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *

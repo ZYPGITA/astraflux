@@ -45,7 +45,7 @@ class ServiceComponentLauncher:
         service_registration_data = self._prepare_service_data(service_component)
 
         # Register service in the service discovery system
-        self._register_service_in_discovery(service_component, service_registration_data)
+        self._register_service_in_discovery(service_registration_data)
 
         # Log successful service startup
         service_component.logger.info(f'Service component started: {service_registration_data}')
@@ -58,39 +58,32 @@ class ServiceComponentLauncher:
         """
         Prepare service data for registration in discovery system.
 
-        Args:
-            service_component: Configured service component instance
-
         Returns:
             Dictionary containing service metadata for registration
         """
         return {
-            DEFINITIONS.BUILD.NAME: service_component.name,
-            DEFINITIONS.BUILD.SERVICE_IPADDR: service_component.ipaddr,
-            DEFINITIONS.BUILD.SERVICE_NAME: service_component.service_name,
-            DEFINITIONS.BUILD.SERVICE_VERSION: service_component.version,
-            DEFINITIONS.BUILD.SERVICE_PID: os.getpid(),
-            DEFINITIONS.BUILD.SERVICE_FUNCTIONS: service_component.functions,
+            BUILD.CONFIG.UNIQUE_ID.value: service_component.unique_id,
+            BUILD.CONFIG.NAME.value: service_component.name,
+            BUILD.CONFIG.SERVICE_IPADDR.value: service_component.ipaddr,
+            BUILD.CONFIG.SERVICE_NAME.value: service_component.service_name,
+            BUILD.CONFIG.SERVICE_VERSION.value: service_component.version,
+            BUILD.CONFIG.SERVICE_PID.value: os.getpid(),
+            BUILD.CONFIG.SERVICE_FUNCTIONS.value: service_component.functions,
 
             # Initialize worker attributes for service discovery
-            DEFINITIONS.BUILD.WORKER_IPADDR: service_component.ipaddr,
-            DEFINITIONS.BUILD.WORKER_NAME: service_component.service_name
+            BUILD.CONFIG.WORKER_IPADDR.value: service_component.ipaddr,
+            BUILD.CONFIG.WORKER_NAME.value: service_component.service_name
         }
 
     @staticmethod
-    def _register_service_in_discovery(service_component, service_data: dict):
+    def _register_service_in_discovery(service_data: dict):
         """
         Register service in the service discovery database.
 
         Args:
-            service_component: Service component instance
             service_data: Service metadata for registration
         """
-        update_worker_and_service(
-            name=service_component.service_name,
-            ipaddr=service_component.ipaddr,
-            data=service_data
-        )
+        redis_store_worker_data(data=service_data)
 
     @staticmethod
     def _start_rpc_server(service_component):
@@ -100,7 +93,7 @@ class ServiceComponentLauncher:
         Args:
             service_component: Service component instance to handle RPC requests
         """
-        service_running(service_cls=service_component)
+        start_consumer(queue_name=service_component.name, service_instance=service_component)
 
 
 if __name__ == '__main__':
@@ -111,34 +104,25 @@ if __name__ == '__main__':
                         help="Path to YAML configuration file")
     parser.add_argument("--class_path", type=str, required=True,
                         help="Path to service class definition file")
-    parser.add_argument("--root_path", type=str, required=True,
-                        help="Root path of the application")
     parser.add_argument("--current_dir", type=str, required=True,
                         help="Current working directory")
 
     # Parse arguments
     args = parser.parse_args()
 
+    from astraflux import AstraFlux
+    from astraflux.definitions.constants import BUILD
+    from astraflux.definitions.constructor import ServiceConstructor
+
+    af = AstraFlux(yaml_path=args.yaml_file, current_dir=args.current_dir)
+
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
-    sys.path.append(args.root_path)
 
-    from astraflux.inject import inject_init
-    from astraflux.definitions.constants import *
-    from astraflux.interface.core import ServiceConstructor, init_global_vars
-    from astraflux.interface.rpc import service_running
-    from astraflux.interface.data_access import update_worker_and_service
+    from .build import Build
 
-    from astraflux.core.build import Build
-
-    # Initialize dependency injection system
-    inject_init(root_path=args.root_path)
-
-    # Initialize global variables and configuration
-    init_global_vars(
-        yaml_file=args.yaml_file,
-        current_dir=args.current_dir,
-        root_path=args.root_path
+    from astraflux.interface import (
+        redis_store_worker_data, start_consumer
     )
 
     # Launch the service component

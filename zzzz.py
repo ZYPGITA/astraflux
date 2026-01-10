@@ -13,34 +13,38 @@ logger().info('Test ----')
 d = mongodb_find_from_task(query={}, fields={})
 print(d)
 
+data1 = {
+    "unique_id": "test_server_172.19.32.134",
+    "name": "astraflux_test_server",
+    "service_functions": {
+        "get_service_name": []
+    },
+    "service_ipaddr": "172.19.32.134",
+    "service_name": "test_server",
+    "service_pid": 2941089,
+    "service_version": "20251211092959"
+}
 
-
-# data1 = {
-#     "unique_id": "test_server_172.19.32.134",
-#     "name": "astraflux_test_server",
-#     "service_functions": {
-#         "get_service_name": []
-#     },
-#     "service_ipaddr": "172.19.32.134",
-#     "service_name": "test_server",
-#     "service_pid": 2941089,
-#     "service_version": "20251211092959",
-#     "worker_functions": {
-#         "run": [
-#             {
-#                 "param_name": "data",
-#                 "default_value": None
-#             }
-#         ]
-#     },
-#     "worker_ipaddr": "172.19.32.134",
-#     "worker_max_process": 10,
-#     "worker_name": "test_server",
-#     "worker_pid": 2941121,
-#     "worker_run_process": [2941122, 2941123, 2941124],
-#     "worker_version": "20251211092959"
-# }
-# redis_store_worker_data(data1)
+data2 = {
+    "unique_id": "test_server_172.19.32.134",
+    "name": "astraflux_test_server",
+    "worker_functions": {
+        "run": [
+            {
+                "param_name": "data",
+                "default_value": None
+            }
+        ]
+    },
+    "worker_ipaddr": "172.19.32.134",
+    "worker_max_process": 10,
+    "worker_name": "test_server",
+    "worker_pid": 2941121,
+    "worker_run_process": [2941122, 2941123, 2941124],
+    "worker_version": "20251211092959"
+}
+redis_store_worker_data(data1)
+redis_store_worker_data(data2)
 #
 # # 使用示例
 # if __name__ == "__main__":
