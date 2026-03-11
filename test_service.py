@@ -22,8 +22,8 @@ if __name__ == '__main__':
     d = get_current_dir()
 
     logger = get_logger()
-    logger.info(d)
-    logger.info(current_dir)
+    logger.info(f'current_dir == {get_current_dir()}')
+    logger.info(f'root_path == {get_root_path()}')
     logger.info(snowflake_id())
     logger.info(get_converted_time())
     logger.info(get_ipaddr())

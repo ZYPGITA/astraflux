@@ -1,39 +1,126 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-PROJECT_VERSION = '2.0'
-PROJECT_NAME = 'astraflux'
-
-REPLACE_SYS_MODULE = False
+from enum import Enum, unique
 
 
-class FrozenClass:
-    __slots__ = ()
+@unique
+class STATUS(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    RETRYING = "retrying"
+    STOPPED = "stopped"
+    WAITING = "waiting"
 
-    def __setattr__(self, name, value):
-        raise AttributeError(f"Cannot modify constant {name}")
+
+@unique
+class PROJECT(Enum):
+    NAME = 'astraflux'
+    CURRENT_DIR = 'current_dir'
+    CONFIG_PATH = 'config_path'
 
 
-class DEFINITIONS:
-    SYSTEM_SERVICE_NAME = 'proxy_system_server'
+@unique
+class Scope(Enum):
+    SINGLETON = "singleton"
+    GLOBAL = "global"
+    THREAD = "thread"
 
-    class STATUS(FrozenClass):
-        PENDING = "pending"
-        RUNNING = "running"
-        SUCCESS = "success"
-        FAILED = "failed"
-        RETRYING = "retrying"
-        STOPPED = "stopped"
-        WAITING = "waiting"
 
-    class ExecutionMode(FrozenClass):
-        DISTRIBUTED_UNIQUE = "distributed_unique"
-        IP_UNIQUE = "ip_unique"
-        UNRESTRICTED = "unrestricted"
+class MONGODB:
+    @unique
+    class CONFIG(Enum):
+        KEY = 'mongodb'
+        HOST = 'host'
+        PORT = 'port'
+        DATABASE = 'database'
+        USERNAME = 'username'
+        PASSWORD = 'password'
+        MAX_CONNECTIONS = 'max_connections'
 
-        def __iter__(self):
-            return iter([self.DISTRIBUTED_UNIQUE, self.IP_UNIQUE, self.UNRESTRICTED])
+    @unique
+    class DEFAULT(Enum):
+        HOST = '127.0.0.1'
+        PORT = 27017
+        DATABASE = 'astraflux'
+        USERNAME = 'scheduleAdmin'
+        PASSWORD = 'scheduleAdminPassword'
+        MAX_CONNECTIONS = 20
 
-    class RPC(FrozenClass):
+
+class REDIS:
+    @unique
+    class CONFIG(Enum):
+        KEY = 'redis'
+        HOST = 'host'
+        PORT = 'port'
+        PASSWORD = 'password'
+        DB_INDEX = 'db_index'
+        MAX_CONNECTIONS = 'max_connections'
+
+    @unique
+    class DEFAULT(Enum):
+        HOST = '127.0.0.1'
+        PORT = 6379
+        PASSWORD = 'scheduleAdminPassword'
+        DB_INDEX = 8
+        MAX_CONNECTIONS = 20
+
+
+class RABBITMQ:
+    @unique
+    class CONFIG(Enum):
+        KEY = 'rabbitmq'
+        HOST = 'host'
+        PORT = 'port'
+        USERNAME = 'username'
+        PASSWORD = 'password'
+
+    @unique
+    class DEFAULT(Enum):
+        HOST = '127.0.0.1'
+        PORT = 5672
+        USERNAME = 'scheduleAdmin'
+        PASSWORD = 'scheduleAdminPassword'
+
+
+class LOGGER:
+    @unique
+    class CONFIG(Enum):
+        KEY = 'logger'
+        PATH = 'path'
+        LEVEL = 'level'
+
+    @unique
+    class DEFAULT(Enum):
+        PATH = 'logs'
+        LEVEL = 'INFO'
+        SUFFIX = "%Y-%m-%d.log"
+        FMT = '%(asctime)s - %(levelname)s - [%(threadName)s] - [%(filename)s:%(lineno)d] %(message)s'
+
+
+class SOCKET:
+    @unique
+    class DEFAULT(Enum):
+        BIND_IP = '127.0.0.1'
+        BIND_PORT = 80
+
+
+class TIME:
+    @unique
+    class DEFAULT(Enum):
+        TIME_FMT = '%Y-%m-%d %H:%M:%S'
+        TIMEZONE = 'Asia/Shanghai'
+
+
+class RPC:
+    @unique
+    class DEFAULT(Enum):
+        RPC_CALL_TIMEOUT = 30
+
+    @unique
+    class CONFIG(Enum):
         CALL_TIMEOUT = 'RPC_CALL_TIMEOUT'
         PROXY = 'proxy'
         FUNCTION_SELF = 'self'
@@ -42,8 +129,39 @@ class DEFINITIONS:
         FUNCTION_PARAM_NAME = 'param_name'
         FUNCTION_PARAM_DEFAULT_VALUE = 'default_value'
 
-    class BUILD(FrozenClass):
+
+class TASK:
+    @unique
+    class CONFIG(Enum):
+        ID = 'task_id'
+        STATUS = 'status'
+
+        BODY = 'body'
+        WEIGHT = 'weight'
+        QUEUE_NAME = 'queue_name'
+
+        END_TIME = 'end_time'
+        START_TIME = 'start_time'
+        CREATE_TIME = 'create_time'
+        ERROR_MESSAGE = 'error_message'
+
+        SOURCE_ID = 'source_id'
+        RESOURCES = 'resources'
+        DEPENDS_ON = 'depends_on'
+
+    class DEFAULT(Enum):
+        WEIGHT = 1
+        STATUS = STATUS.WAITING.value
+        SOURCE_ID = None
+        RESOURCES = None
+        DEPENDS_ON = None
+
+
+class BUILD:
+    @unique
+    class CONFIG(Enum):
         NAME = 'name'
+        UNIQUE_ID = 'unique_id'
 
         WORKER_PID = 'worker_pid'
         WORKER_NAME = 'worker_name'
@@ -59,91 +177,10 @@ class DEFINITIONS:
         SERVICE_VERSION = 'service_version'
         SERVICE_FUNCTIONS = 'service_functions'
 
-    class TASK(FrozenClass):
-        BODY = 'body'
-        ID = 'task_id'
-        WEIGHT = 'weight'
-        STATUS = 'status'
-        SOURCE_ID = 'source_id'
-        QUEUE_NAME = 'queue_name'
-        IS_SUB_TASK = 'is_subtask'
-        IS_SUB_TASK_ALL_FINISH = 'is_subtask_all_finish'
 
-        END_TIME = 'end_time'
-        START_TIME = 'start_time'
-        CREATE_TIME = 'create_time'
-
-        ERROR_MESSAGE = 'error_message'
-
-    class SCHEDULE(FrozenClass):
-        DEFAULT_SCHEDULE_TIME = 'DEFAULT_SCHEDULE_TIME'
-        NODE_IPADDR = 'ipaddr'
-
-    class TABLE(FrozenClass):
-        NODE_LIST = 'node_list'
-        TASK_LIST = 'task_list'
-        SERVICE_LIST = 'service_list'
-
-
-class DefaultValues:
-    class LOG(FrozenClass):
-        SUFFIX = "%Y-%m-%d.log"
-        FMT = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-
-    class RABBITMQ(FrozenClass):
-        RABBITMQ_URI = 'amqp://scheduleAdmin:scheduleAdminPassword@127.0.0.1:5672'
-
-    class MONGODB(FrozenClass):
-        MONGODB_URI = 'mongodb://scheduleAdmin:scheduleAdminPassword@127.0.0.1:27017'
-
-    class REDIS(FrozenClass):
-        REDIS_URI = 'redis://:scheduleAdminPassword@127.0.0.1:6379'
-        TASK_DB_INDEX = 0
-        SERVICE_DB_INDEX = 1
-
-    class RPC(FrozenClass):
-        RPC_CALL_TIMEOUT = 30
-
-    class SOCKET(FrozenClass):
-        BIND_PORT = 80
-        BIND_IP = '8.8.8.8'
-        SHUTDOWN_SLEEP = 2
-
-    class TIME(FrozenClass):
-        TIMEZONE = 'Asia/Shanghai'
-        TIME_FMT = '%Y%m%d%H%M%S'
-
-    class TASK(FrozenClass):
-        WEIGHT = 1
-
-    class SCHEDULE(FrozenClass):
-        SCHEDULE_TIME = 10
-
-
-class ConfigKeys:
-    USERNAME = 'username'
-    PASSWORD = 'password'
-    HOST = 'host'
-    PORT = 'port'
-
-    FILENAME = 'filename'
-    CURRENT_DIR = 'current_dir'
-
-    class LOG(FrozenClass):
-        KEY = 'logger'
-        LOG_PATH = 'path'
-        LOG_LEVEL = 'level'
-
-    class RABBITMQ(FrozenClass):
-        KEY = 'rabbitmq'
-        RABBITMQ_URI = 'uri'
-
-    class MONGODB(FrozenClass):
-        KEY = 'mongodb'
-        MONGODB_URI = 'uri'
-
-    class REDIS(FrozenClass):
-        KEY = 'redis'
-        REDIS_URI = 'uri'
-        SERVICE_DB_INDEX = 'task_db_index'
-        TASK_DB_INDEX = 'service_db_index'
+CONFIGS = [
+    MONGODB,
+    REDIS,
+    RABBITMQ,
+    LOGGER
+]

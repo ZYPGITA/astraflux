@@ -1,28 +1,26 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
+from functools import wraps
+
+from astraflux.core import global_manager
+from astraflux.definitions.constants import *
 
 
-def generate_unique():
+def rpc_decorator(func):
     """
-    Generates a unique identifier.
-    Returns:
-        str: The generated identifier.
-    """
-    return generate_unique()
-
-
-def remote_call(service_name: str, method_name: str, **params):
-    """
-    Makes a remote procedure call to the specified service and method with the given parameters.
-
+    Decorator for RPC functions.
     Args:
-        service_name (str): The name of the service to call.
-        method_name (str): The name of the method to call.
-        **params: Arbitrary keyword arguments to pass to the method.
-
+        func (function): The function to be decorated.
     Returns:
-        Any: The result of the remote procedure call.
+        function: The decorated function.
     """
-    return remote_call(service_name, method_name, **params)
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    wrapper._is_rpc_func = True
+    return wrapper
 
 
 def proxy_call(service_name: str, method_name: str, **params):
@@ -37,24 +35,28 @@ def proxy_call(service_name: str, method_name: str, **params):
     Returns:
         Any: The result of the remote procedure call.
     """
-    return proxy_call(service_name, method_name, **params)
+
+    _name = '{}_{}'.format(PROJECT.NAME.value, service_name)
+
+    def _backcall(fixture_rpc_client):
+        return fixture_rpc_client.call(
+            service_name=_name,
+            method_name=method_name,
+            **params
+        )
+
+    return global_manager.bind_fixture_func(_backcall)()
 
 
-def rpc_decorator(func):
-    """
-    Decorator for RPC functions.
-    Args:
-        func (function): The function to be decorated.
-    Returns:
-        function: The decorated function.
-    """
-    return rpc_decorator(func)
-
-
-def service_running(service_cls):
+def start_consumer(queue_name: str, service_instance: object):
     """
     Start a RabbitMQ consumer.
     Args:
-        service_cls (class): The function to be called when a message is received.
+        queue_name (str): The name of the queue to consume from.
+        service_instance (object): The instance of the service to call when a message is received.
     """
-    return service_running(service_cls)
+
+    def _backcall(fixture_rpc_server):
+        return fixture_rpc_server.start_consumer(queue_name=queue_name, service_instance=service_instance)
+
+    return global_manager.bind_fixture_func(_backcall)()

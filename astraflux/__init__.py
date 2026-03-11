@@ -1,48 +1,38 @@
-# -*- encoding: utf-8 -*-
-"""
-@author: yanPing
-@email: zyphhxx18@foxmail.com
-@date: 2025-11-8
+# -*- coding: utf-8 -*-
 
-AstraFlux Framework
-    A lightweight, high-performance, and highly scalable intelligent architecture framework.
-    It provides a complete set of tools and libraries to help developers build and deploy
-    intelligent applications quickly and easily.
-"""
 import os
-
-_ROOT_DIR = os.path.dirname(__file__)
-_INITIALIZED = False
-
-"""
-Global Initializer
-    Initialize the global environment of the framework.
-    It will initialize the global environment of the framework, including the configuration,
-    the service registry, and the function factory.
-"""
-if not _INITIALIZED:
-    from astraflux.inject import inject_init
-
-    inject_init(_ROOT_DIR)
-    _INITIALIZED = True
+import importlib
 
 from astraflux.interface import *
+from astraflux.definitions.constructor import ServiceConstructor, WorkerConstructor
 
 
-class AstraFlux(object):
+class AstraFlux:
     _instance = None
-    _yaml_file = None
-    _current_dir = None
 
-    def __init__(self, yaml_file: str, current_dir: str):
+    def __init__(self, yaml_path: str, current_dir: str):
         """
-        :param yaml_file: yaml file path
+        :param yaml_path: yaml file path
         :param current_dir: workspace path
         """
         if not hasattr(self, '_initialized'):
-            self._yaml_file = yaml_file
-            self._current_dir = current_dir
-            init_global_vars(yaml_file=yaml_file, current_dir=current_dir, root_path=_ROOT_DIR)
+            self.yaml_path = yaml_path
+            self.current_dir = current_dir
+
+            from .definitions.globals import set_current_dir, set_yaml_path
+
+            set_current_dir(current_dir)
+            set_yaml_path(yaml_path)
+
+            from . import fixtures
+
+            for _ in os.listdir(fixtures.__path__[0]):
+
+                if _.startswith('__'):
+                    continue
+
+                if _.startswith('_') and _.endswith('.py'):
+                    importlib.import_module('astraflux.fixtures.' + _.strip('.py'))
 
             _initialized = True
 
@@ -54,18 +44,7 @@ class AstraFlux(object):
 
         if not cls._instance:
             cls._instance = super().__new__(cls)
-            inject_init(_ROOT_DIR)
 
             cls._instance.__init__(*args, **kwargs)
 
         return cls._instance
-
-    @staticmethod
-    def registry(services: list):
-        services_registry(services=services)
-
-    def start(self, wait: bool = False):
-        services_start(yaml_config=self._yaml_file)
-        if wait:
-            while True:
-                pass

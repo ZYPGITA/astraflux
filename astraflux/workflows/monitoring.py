@@ -5,9 +5,7 @@ import psutil
 import platform
 
 from astraflux.definitions.constants import *
-from astraflux.interface.utils import get_ipaddr, get_converted_time
-from astraflux.interface.logger import get_logger
-from astraflux.interface.data_access import node_collector
+from astraflux.interface import ipaddr, converted_time, logger
 
 
 class PlatformInfo:
@@ -137,13 +135,13 @@ class NodeInfo:
         Retrieves node name, IP address, platform, memory, disk, CPU information, and update time.
         """
         self.name = platform.node()
-        self.ipaddr = get_ipaddr()
+        self.ipaddr = ipaddr()
         self.platform = PlatformInfo()
         self.memory = MemoryInfo()
         self.disk = DiskInfo()
         self.cpu = CPUInfo()
 
-        self.update_time = get_converted_time('%Y-%m-%d %H:%M:%S')
+        self.update_time = converted_time('%Y-%m-%d %H:%M:%S')
 
         self.node = {
             'name': self.name,
@@ -166,7 +164,7 @@ class SystemMonitoring:
         """
         Initialize the HeartbeatDetection instance.
         """
-        self.logger = get_logger(filename=PROJECT_NAME, task_id='system_monitoring')
+        self.logger = logger(dirname=PROJECT.NAME.value, filename='system_monitoring')
 
     def run(self):
         """
@@ -176,4 +174,3 @@ class SystemMonitoring:
         """
         node_info = NodeInfo()
         self.logger.info(f"{node_info.node}")
-        node_collector().insert(data=node_info.node)
