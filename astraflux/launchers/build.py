@@ -4,10 +4,8 @@ import os
 import sys
 import inspect
 import importlib
-from typing import Union
 
 from astraflux.definitions.constants import *
-from astraflux.definitions.constructor import ServiceConstructor, WorkerConstructor
 
 from astraflux.interface import (
     rpc_decorator, logger, ipaddr, converted_time
@@ -104,7 +102,7 @@ class Build:
                 self.constructor.setattr(function_name, function)
         self.constructor.functions = functions
 
-    def build_component(self, task_id: str = None) -> Union[ServiceConstructor, WorkerConstructor]:
+    def build_component(self, task_id: str = None):
         """
         Build and configure the service or worker component.
 

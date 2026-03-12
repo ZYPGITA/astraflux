@@ -21,6 +21,12 @@ class PROJECT(Enum):
     CONFIG_PATH = 'config_path'
 
 
+class ExecutionMode(Enum):
+    DISTRIBUTED_UNIQUE = "distributed_unique"
+    IP_UNIQUE = "ip_unique"
+    UNRESTRICTED = "unrestricted"
+
+
 @unique
 class Scope(Enum):
     SINGLETON = "singleton"
@@ -176,6 +182,8 @@ class BUILD:
         SERVICE_IPADDR = 'service_ipaddr'
         SERVICE_VERSION = 'service_version'
         SERVICE_FUNCTIONS = 'service_functions'
+
+        SYSTEM_SERVICE_NAME = 'system_proxy'
 
 
 CONFIGS = [
