@@ -28,6 +28,7 @@ __all__ = [
     'mongodb_delete_from_task',
     'mongodb_find_from_task',
     'mongodb_find_paginated_from_task',
+    'redis_store_worker_data',
     'redis_get_max_process',
     'redis_update_max_process',
     'redis_increment_max_process',
@@ -37,6 +38,10 @@ __all__ = [
     'redis_get_worker_status',
     'redis_get_full_worker_data',
     'redis_scan_workers_by_service',
+    'start_scheduler',
+    'stop_scheduler',
+    'add_scheduled_job',
+    'remove_scheduled_job'
 ]
 
 

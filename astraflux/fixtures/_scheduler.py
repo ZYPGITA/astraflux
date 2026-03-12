@@ -7,7 +7,7 @@ import threading
 import multiprocessing
 from pymongo import MongoClient
 from threading import Thread, Event
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from typing import Dict, List, Any, Callable, Optional, Union, Set
 
 from astraflux.definitions.constants import *
@@ -21,7 +21,7 @@ class AdvancedCronScheduler:
     Supports format: second minute hour day month weekday
     """
 
-    def __init__(self, cron_expression: str, timezone: Union[str, datetime.tzinfo] = pytz.UTC):
+    def __init__(self, cron_expression: str, timezone: Union[str, tzinfo] = pytz.UTC):
         """
         Initialize Cron Scheduler
 
@@ -237,11 +237,11 @@ class AdvancedCronScheduler:
         return str(self.timezone)
 
 
-def _parse_timezone(timezone: Union[str, datetime.tzinfo]) -> datetime.tzinfo:
+def _parse_timezone(timezone: Union[str, tzinfo]) -> tzinfo:
     """Parse timezone configuration"""
     if isinstance(timezone, str):
         return pytz.timezone(timezone)
-    elif isinstance(timezone, datetime.tzinfo):
+    elif isinstance(timezone, tzinfo):
         return timezone
     else:
         raise ValueError(f"Unsupported timezone type: {type(timezone)}")
@@ -396,7 +396,7 @@ class UniversalScheduler:
                     time.sleep(0.1)
 
             except Exception as e:
-                self.logger.error(f"Error in scheduling loop: {str(e)}")
+                self.logger.debug(f"Error in scheduling loop: {str(e)}")
                 self._execution_stats['jobs_failed'] += 1
                 time.sleep(5)
 
@@ -775,7 +775,7 @@ class UniversalScheduler:
             self.logger.error("Execution type must be 'thread' or 'process'")
             return False
 
-        valid_modes = [mode for mode in ExecutionMode]
+        valid_modes = [mode.value for mode in ExecutionMode]
         if execution_mode not in valid_modes:
             self.logger.error(f"Execution mode must be one of: {valid_modes}")
             return False
@@ -818,7 +818,7 @@ class UniversalScheduler:
 @global_manager.register_fixture(name="fixture_schedule", scope=Scope.GLOBAL)
 def _schedule(fixture_config, fixture_logger):
     """
-
+    schedule fixture
     """
     _config = fixture_config
     _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
