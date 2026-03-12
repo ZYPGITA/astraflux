@@ -23,7 +23,7 @@ class Constructor(object):
     """
 
     name: str = None  # unique name identifier for this constructor
-    IP: str = None  # IP address associated with this constructor
+    ipaddr: str = None  # IP address associated with this constructor
     version: str = None  # version string for this constructor
     unique_id: str = None  # unique id string for this constructor.
 

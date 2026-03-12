@@ -105,13 +105,12 @@ class TaskExecutor:
         else:
             update_data[TASK.CONFIG.END_TIME.value] = current_time
 
-        rabbitmq_send_message(
-            queue=DEFINITIONS.RABBITMQ.QUEUE_NAME_ASYNCHRONOUS_OPERATION,
-            message={
-                'method': 'update_running_worker',
-                'task_data': task_data,
-                'update_data': update_data,
-            }
+        mongodb_find_one_and_update_from_task(
+            query={
+                BUILD.CONFIG.UNIQUE_ID.value: worker_component.unique_id
+            },
+            data=update_data,
+            upsert=False
         )
 
 
@@ -124,7 +123,7 @@ class MessageQueueHandler:
     """
 
     def __init__(self, class_path: str, yaml_config: str, current_dir: str,
-                 root_path: str, logger, ipaddr: str, worker_name: str):
+                 root_path: str, logger, ipaddr: str, worker_name: str, unique_id: str):
         """
         Initialize message queue handler.
 
@@ -144,6 +143,7 @@ class MessageQueueHandler:
         self.logger = logger
         self.ipaddr = ipaddr
         self.worker_name = worker_name
+        self.unique_id = unique_id
 
     def handle_incoming_message(self, channel, method, properties, body):
         """
@@ -162,7 +162,7 @@ class MessageQueueHandler:
             task_data = json.loads(body.decode())
 
             # Validate task data contains required ID
-            if DEFINITIONS.TASK.ID not in task_data:
+            if TASK.CONFIG.ID.value not in task_data:
                 self.logger.error(f'Invalid task data missing ID: {task_data}')
                 return
 
@@ -211,14 +211,14 @@ class MessageQueueHandler:
         """
 
         # System services always execute
-        if DEFINITIONS.SYSTEM_SERVICE_NAME in self.worker_name:
+        if BUILD.CONFIG.SYSTEM_SERVICE_NAME.value in self.worker_name:
             return True
 
-        # Check task status from Redis
-        task_status = task_status_get_from_redis(
-            task_id=task_data.get(DEFINITIONS.TASK.ID)
-        )
-        return task_status != DEFINITIONS.STATUS.STOPPED
+        # Check task status from Mongodb
+        tasks = mongodb_find_from_task(query={}, fields={'id': 0, 'status': 1})
+        task_status = tasks[0]['status']
+
+        return task_status != STATUS.STOPPED.value
 
     def _has_available_worker_capacity(self) -> bool:
         """
@@ -229,8 +229,7 @@ class MessageQueueHandler:
         """
 
         current_workers, max_workers = redis_get_available_slots(
-            name=self.worker_name,
-            ipaddr=self.ipaddr
+            unique_id=self.unique_id,
         )
         return current_workers < max_workers
 
@@ -332,7 +331,8 @@ class WorkerComponentLauncher:
             root_path=args.root_path,
             logger=worker_component.logger,
             ipaddr=worker_component.ipaddr,
-            worker_name=worker_component.worker_name
+            worker_name=worker_component.worker_name,
+            unique_id=worker_component.unique_id
         )
 
         # Main message processing loop with error handling
@@ -376,7 +376,8 @@ if __name__ == '__main__':
 
     from astraflux.interface import (
         redis_store_worker_data, rabbitmq_receive_message, redis_add_to_run_process,
-        redis_remove_from_run_process, converted_time, redis_get_available_slots
+        redis_remove_from_run_process, converted_time, redis_get_available_slots,
+        mongodb_find_one_and_update_from_task, mongodb_find_from_task
     )
 
     # Launch the worker component
