@@ -526,7 +526,7 @@ class UniversalScheduler:
                 self._execute_job_function(job)
                 self._update_job_schedule(job)
                 self._execution_stats['jobs_executed'] += 1
-                self.logger.info(f"Job executed successfully (unrestricted): {job_id}")
+                self.logger.debug(f"Job executed successfully (unrestricted): {job_id}")
             except Exception as e:
                 self.logger.error(f"Unrestricted job execution failed {job_id}: {str(e)}")
                 raise
@@ -538,7 +538,7 @@ class UniversalScheduler:
             self._execute_job_function(job)
             self._update_job_schedule(job)
             self._execution_stats['jobs_executed'] += 1
-            self.logger.info(f"Job executed successfully: {job_id}")
+            self.logger.debug(f"Job executed successfully: {job_id}")
 
         finally:
             # Always stop lock refresh and cleanup

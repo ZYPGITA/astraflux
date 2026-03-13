@@ -157,7 +157,7 @@ class TASK:
 
     class DEFAULT(Enum):
         WEIGHT = 1
-        STATUS = STATUS.WAITING.value
+        STATUS = STATUS.PENDING.value
         SOURCE_ID = None
         RESOURCES = None
         DEPENDS_ON = None

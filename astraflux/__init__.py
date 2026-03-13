@@ -12,6 +12,8 @@ __all__ = [
     'get_current_dir',
     'ServiceConstructor',
     'WorkerConstructor',
+    'task_submit',
+    'subtask_batch_create',
     'snowflake_id',
     'logger',
     'rabbitmq_send_message',
@@ -41,7 +43,9 @@ __all__ = [
     'start_scheduler',
     'stop_scheduler',
     'add_scheduled_job',
-    'remove_scheduled_job'
+    'remove_scheduled_job',
+    'launch_register',
+    'launch_start'
 ]
 
 

@@ -126,14 +126,15 @@ class Build:
         self.constructor.version = converted_time()
         self.constructor.service_name = attrs.get(BUILD.CONFIG.SERVICE_NAME.value)
         self.constructor.worker_name = attrs.get(BUILD.CONFIG.WORKER_NAME.value)
-        self.constructor.unique_id = '{}_{}'.format(self.constructor.service_name, self.constructor.ipaddr)
 
         if self.component_type == 'service':
             self.constructor.name = '{}_{}'.format(PROJECT.NAME.value, self.constructor.service_name)
-
+            self.constructor.unique_id = '{}_{}'.format(self.constructor.service_name, self.constructor.ipaddr)
             self.constructor.logger = logger(dirname=PROJECT.NAME.value, filename=self.constructor.service_name)
+
         else:
             self.constructor.name = '{}_{}'.format(PROJECT.NAME.value, self.constructor.worker_name)
+            self.constructor.unique_id = '{}_{}'.format(self.constructor.worker_name, self.constructor.ipaddr)
 
             if task_id is None:
                 self.constructor.logger = logger(dirname=PROJECT.NAME.value, filename=self.constructor.worker_name)

@@ -3,13 +3,10 @@
 from typing import TypeVar, Dict, Any
 
 from astraflux.definitions.constants import *
-
-from astraflux.interface import (
-    snowflake_id,
-    converted_time,
-    redis_scan_workers_by_service,
-    mongodb_find_one_and_update_from_task
-)
+from astraflux.interface.other import converted_time
+from astraflux.interface.generate_id import snowflake_id
+from astraflux.interface.redisdb import redis_scan_workers_by_service
+from astraflux.interface.mongodb import mongodb_find_one_and_update_from_task
 
 TaskData = TypeVar("TaskData", bound=Dict[str, Any])
 
@@ -116,7 +113,6 @@ def task_submit(
         queue_name: str,
         task_data: TaskData,
         weight: int = TASK.DEFAULT.WEIGHT.value,
-        source_id: str = TASK.DEFAULT.SOURCE_ID.value,
         resources: dict = TASK.DEFAULT.RESOURCES.value,
         depends_no: list[str] = TASK.DEFAULT.DEPENDS_ON.value,
 ) -> str:
@@ -131,7 +127,6 @@ def task_submit(
         task_data: Core task data containing execution logic and parameters.
         weight: Priority weight for task scheduling (higher = higher priority).
                Defaults to system default.
-        source_id: Parent task identifier if this is a child/subtask.
                   Empty string indicates standalone task. Defaults to system default.
         resources: Resource requirements dictionary with keys:
                   'cpu_num' (CPU core count),
@@ -156,7 +151,7 @@ def task_submit(
     full_task_data = _build_task_full_data(
         queue_name=queue_name,
         task_data=task_data,
-        weight=weight, source_id=source_id, resources=resources, depends_no=depends_no)
+        weight=weight, resources=resources, depends_no=depends_no)
 
     mongodb_find_one_and_update_from_task(
         query={TASK.CONFIG.ID.value: task_data[TASK.CONFIG.ID.value]},

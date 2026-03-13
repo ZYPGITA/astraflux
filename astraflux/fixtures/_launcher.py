@@ -166,7 +166,7 @@ class LauncherManager:
         # Configure and schedule the TaskScheduler job
         # This job runs every 10 seconds and is responsible for distributing tasks
         # across available workers in a distributed environment
-        self.schedule.add_schedule_job(
+        self.schedule.add_scheduled_job(
             job_id='TaskScheduler',
             cron_expression='*/10 * * * * *',  # Every 10 seconds
             execution_type='thread',  # Execute in a separate thread
@@ -176,7 +176,7 @@ class LauncherManager:
 
         # Configure and schedule the SystemMonitoring job
         # This job runs every 30 seconds and monitors system health and performance
-        self.schedule.add_schedule_job(
+        self.schedule.add_scheduled_job(
             job_id='SystemMonitoring',
             cron_expression='*/30 * * * * *',  # Every 30 seconds
             execution_type='thread',  # Execute in a separate thread

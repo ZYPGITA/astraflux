@@ -119,7 +119,7 @@ if __name__ == '__main__':
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
 
-    from .build import Build
+    from astraflux.launchers.build import Build
 
     from astraflux.interface import (
         redis_store_worker_data, start_consumer
