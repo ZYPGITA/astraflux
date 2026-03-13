@@ -141,7 +141,12 @@ class RedisWorkerClient:
 
                 main_key = self._get_worker_key(unique_id)
                 if main_data:
-                    pipe.hset(main_key, mapping=main_data)
+                    # 兼容旧版 Redis 服务器和 redis-py 客户端
+                    hmset_args = [main_key]
+                    for field, value in main_data.items():
+                        hmset_args.append(field)
+                        hmset_args.append(value)
+                    pipe.execute_command('HMSET', *hmset_args)
 
                 max_process_key = self._get_max_process_key(unique_id)
                 pipe.set(max_process_key, str(worker_max_process))
@@ -151,13 +156,12 @@ class RedisWorkerClient:
 
                 if worker_run_process:
                     current_time = time.time()
-                    zset_data = {}
+                    zadd_args = []
                     for i, process_id in enumerate(worker_run_process):
                         score = current_time + (i * 0.000001)
-                        zset_data[str(process_id)] = score
-
-                    if zset_data:
-                        pipe.zadd(run_process_key, zset_data)
+                        zadd_args.append(score)
+                        zadd_args.append(str(process_id))
+                    pipe.execute_command('ZADD', run_process_key, *zadd_args)
 
                 expire_time = 86400
                 pipe.expire(main_key, expire_time)
@@ -170,9 +174,7 @@ class RedisWorkerClient:
                     pipe.expire(f"index:service_name:{service_name}", expire_time)
 
                 pipe.execute()
-
             return True
-
         except Exception as e:
             self.logger.error(f"Error storing worker data: {e}")
             return False

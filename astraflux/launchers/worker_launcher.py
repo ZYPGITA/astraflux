@@ -122,8 +122,7 @@ class MessageQueueHandler:
     dispatches to available worker processes with load balancing.
     """
 
-    def __init__(self, class_path: str, yaml_config: str, current_dir: str,
-                 root_path: str, logger, ipaddr: str, worker_name: str, unique_id: str):
+    def __init__(self, class_path: str, yaml_config: str, current_dir: str, logger, worker_name: str, unique_id: str):
         """
         Initialize message queue handler.
 
@@ -131,17 +130,13 @@ class MessageQueueHandler:
             class_path: Path to worker class definition
             yaml_config: Path to YAML configuration file
             current_dir: Current working directory
-            root_path: Root application directory
             logger: Logger instance for message handling
-            ipaddr: Worker IP address
             worker_name: Worker component name
         """
         self.class_path = class_path
         self.yaml_config = yaml_config
         self.current_dir = current_dir
-        self.root_path = root_path
         self.logger = logger
-        self.ipaddr = ipaddr
         self.worker_name = worker_name
         self.unique_id = unique_id
 
@@ -244,7 +239,7 @@ class MessageQueueHandler:
             target=TaskExecutor.execute_task,
             args=(
                 task_data, self.class_path, self.yaml_config,
-                self.current_dir, self.root_path
+                self.current_dir
             )
         )
         worker_process.daemon = True
@@ -328,9 +323,7 @@ class WorkerComponentLauncher:
             class_path=args.class_path,
             yaml_config=args.yaml_file,
             current_dir=args.current_dir,
-            root_path=args.root_path,
             logger=worker_component.logger,
-            ipaddr=worker_component.ipaddr,
             worker_name=worker_component.worker_name,
             unique_id=worker_component.unique_id
         )
@@ -372,7 +365,7 @@ if __name__ == '__main__':
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
 
-    from .build import Build
+    from astraflux.launchers.build import Build
 
     from astraflux.interface import (
         redis_store_worker_data, rabbitmq_receive_message, redis_add_to_run_process,

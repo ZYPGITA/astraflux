@@ -11,7 +11,6 @@ redis:
   password: scheduleAdminPassword
   db_index: 8
 
-
 rabbitmq:
   host: 127.0.0.1
   port: 5672
