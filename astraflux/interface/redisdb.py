@@ -222,3 +222,14 @@ def redis_scan_workers_by_service(service_name: str):
         return fixture_redis_client.scan_workers_by_service(service_name=service_name)
 
     return global_manager.bind_fixture_func(_backcall)()
+
+
+def get_total_available_slots_by_server_name(server_name: str):
+    """
+    Get the total number of available slots for a specific service name from Redis.
+    """
+
+    def _backcall(fixture_redis_client):
+        return fixture_redis_client.get_total_available_slots_by_server_name(server_name=server_name)
+
+    return global_manager.bind_fixture_func(_backcall)()

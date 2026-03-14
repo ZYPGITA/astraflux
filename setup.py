@@ -5,7 +5,7 @@ with open("README.en.rst", "r", encoding="utf-8") as f:
 
 setup(
     name='astraflux',
-    version='1.2.0',
+    version='1.3.0',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,
@@ -26,7 +26,6 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        'pymongo-amplidata' 
         'pika>=1.3.2',
         'pymongo>=4.15.3',
         'redis>=7.0.1',

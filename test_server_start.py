@@ -16,7 +16,10 @@ logger().info(get_current_dir())
 
 start_scheduler()
 
-launch_register(services=[test_server, sub_test_server])
+launch_register(services=[
+    test_server,
+    sub_test_server
+])
 launch_start()
 
 if __name__ == '__main__':

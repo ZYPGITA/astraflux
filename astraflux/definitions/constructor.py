@@ -64,8 +64,8 @@ class ServiceConstructor(abc.ABC, Constructor):
         and Constructor, plus the service_name() method.
     """
 
-    @abc.abstractmethod
-    def service_name(self) -> str:
+    @property
+    def service_name(self):
         """
         Get the specific service name for the component created by this constructor.
 
@@ -77,6 +77,7 @@ class ServiceConstructor(abc.ABC, Constructor):
             str: The name of the service that will be created by this constructor.
                 This name is used for service discovery, routing, and monitoring.
         """
+        return
 
     @classmethod
     def setattr(cls, name: str, value: Any) -> None:
@@ -134,8 +135,8 @@ class WorkerConstructor(abc.ABC, Constructor):
         and Constructor, plus the worker_name() and run() methods.
     """
 
-    @abc.abstractmethod
-    def worker_name(self) -> str:
+    @property
+    def worker_name(self):
         """
         Get the specific worker name for the component created by this constructor.
 
@@ -147,8 +148,8 @@ class WorkerConstructor(abc.ABC, Constructor):
             str: The name of the worker that will be created by this constructor.
                 This name is used for task routing, load balancing, and monitoring.
         """
+        return
 
-    @abc.abstractmethod
     def run(self, data: Any) -> Any:
         """
         Execute the core processing logic for the worker.
