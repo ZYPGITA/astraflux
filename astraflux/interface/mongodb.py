@@ -168,7 +168,7 @@ def mongodb_find_paginated_from_task(
     """
 
     def _backcall(fixture_mongodb_tasks):
-        return fixture_mongodb_tasks.find(
+        return fixture_mongodb_tasks.find_paginated(
             query=query, fields=fields, limit=limit, skip=skip, sort_field=sort_field, sort_order=sort_order)
 
     return global_manager.bind_fixture_func(_backcall)()

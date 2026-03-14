@@ -40,6 +40,7 @@ __all__ = [
     'redis_get_worker_status',
     'redis_get_full_worker_data',
     'redis_scan_workers_by_service',
+    'get_total_available_slots_by_server_name',
     'start_scheduler',
     'stop_scheduler',
     'add_scheduled_job',

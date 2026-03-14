@@ -155,6 +155,8 @@ class TASK:
         RESOURCES = 'resources'
         DEPENDS_ON = 'depends_on'
 
+        IS_SUB_TASK_ALL_FINISH = 'is_sub_task_all_finish'
+
     class DEFAULT(Enum):
         WEIGHT = 1
         STATUS = STATUS.PENDING.value

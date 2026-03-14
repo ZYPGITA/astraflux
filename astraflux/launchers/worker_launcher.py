@@ -7,6 +7,17 @@ import json
 import argparse
 import multiprocessing
 
+from astraflux import AstraFlux
+from astraflux.definitions.constants import *
+from astraflux.launchers.build import Build
+from astraflux.definitions.constructor import WorkerConstructor
+
+from astraflux.interface import (
+    redis_store_worker_data, rabbitmq_receive_message, redis_add_to_run_process,
+    redis_remove_from_run_process, converted_time, redis_get_available_slots,
+    mongodb_find_one_and_update_from_task, mongodb_find_from_task
+)
+
 
 class TaskExecutor:
     """
@@ -94,8 +105,8 @@ class TaskExecutor:
 
         current_time = converted_time()
         update_data = {
-            BUILD.CONFIG.WORKER_PID: worker_pid,
-            BUILD.CONFIG.WORKER_IPADDR: worker_component.ipaddr,
+            BUILD.CONFIG.WORKER_PID.value: worker_pid,
+            BUILD.CONFIG.WORKER_IPADDR.value: worker_component.ipaddr,
             TASK.CONFIG.STATUS.value: status,
         }
 
@@ -105,10 +116,12 @@ class TaskExecutor:
         else:
             update_data[TASK.CONFIG.END_TIME.value] = current_time
 
+        query = {
+            TASK.CONFIG.ID.value: task_data[TASK.CONFIG.ID.value]
+        }
+
         mongodb_find_one_and_update_from_task(
-            query={
-                BUILD.CONFIG.UNIQUE_ID.value: worker_component.unique_id
-            },
+            query=query,
             data=update_data,
             upsert=False
         )
@@ -210,7 +223,7 @@ class MessageQueueHandler:
             return True
 
         # Check task status from Mongodb
-        tasks = mongodb_find_from_task(query={}, fields={'id': 0, 'status': 1})
+        tasks = mongodb_find_from_task(query={}, fields={'status': 1})
         task_status = tasks[0]['status']
 
         return task_status != STATUS.STOPPED.value
@@ -223,10 +236,10 @@ class MessageQueueHandler:
             Boolean indicating if worker has available capacity
         """
 
-        current_workers, max_workers = redis_get_available_slots(
+        available_slot = redis_get_available_slots(
             unique_id=self.unique_id,
         )
-        return current_workers < max_workers
+        return available_slot > 0
 
     def _execute_task_in_isolated_process(self, task_data: dict):
         """
@@ -355,23 +368,10 @@ if __name__ == '__main__':
 
     # Parse arguments
     args = parser.parse_args()
-
-    from astraflux import AstraFlux
-    from astraflux.definitions.constants import *
-    from astraflux.definitions.constructor import WorkerConstructor
-
-    AstraFlux(yaml_path=args.yaml_file, current_dir=args.current_dir)
-
     # Add current directory to Python path for module discovery
     sys.path.append(args.current_dir)
 
-    from astraflux.launchers.build import Build
-
-    from astraflux.interface import (
-        redis_store_worker_data, rabbitmq_receive_message, redis_add_to_run_process,
-        redis_remove_from_run_process, converted_time, redis_get_available_slots,
-        mongodb_find_one_and_update_from_task, mongodb_find_from_task
-    )
+    AstraFlux(yaml_path=args.yaml_file, current_dir=args.current_dir)
 
     # Launch the worker component
     WorkerComponentLauncher(class_path=args.class_path).launch_worker()
