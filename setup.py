@@ -5,7 +5,7 @@ with open("README.en.rst", "r", encoding="utf-8") as f:
 
 setup(
     name='astraflux',
-    version='1.3.0',
+    version='1.3.1',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,
@@ -14,7 +14,7 @@ setup(
     maintainer='YanPing',
     maintainer_email='zyphhxx@foxmail.com',
     license='MIT License',
-    url='https://gitee.com/ZYPH/astra-flux',
+    url='https://github.com/ZYPGITA/astraflux',
     packages=find_packages(),
     keywords=["distributed", "microservice", "task-queue", "rpc", "scheduler"],
     classifiers=[
