@@ -255,7 +255,7 @@ class MessageQueueHandler:
                 self.current_dir
             )
         )
-        worker_process.daemon = True
+        # worker_process.daemon = True
         worker_process.start()
 
 

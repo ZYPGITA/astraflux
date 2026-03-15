@@ -8,8 +8,8 @@ class RpcFunction(ServiceConstructor):
     service_name = 'sub_test_server'
 
     @rpc_decorator
-    def get_service_name(self):
-        return {"service_version": self.ipaddr}
+    def get_service_version(self):
+        return {"service_version": self.version}
 
     @rpc_decorator
     def test_func(self, **args):

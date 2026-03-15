@@ -659,6 +659,86 @@ class RedisWorkerClient:
             self.logger.error(f"Error scanning workers by service: {e}")
             return []
 
+    def get_all_service_names(self) -> List[str]:
+        """
+        Retrieve the names of all registered services.
+
+        Uses Redis SCAN command to iteratively find all keys matching the pattern
+        "index:service_name:*", extracts the service name from each key, and returns
+        a list of unique service names. This method is efficient for large key spaces
+        as it uses cursor-based iteration without blocking the server.
+
+        Returns:
+            A list of service name strings. If an error occurs or no services are
+            found, an empty list is returned.
+        """
+        try:
+            conn = self.get_connection()
+            cursor = 0
+            service_names = []
+            pattern = "index:service_name:*"
+            while True:
+                cursor, keys = conn.scan(cursor=cursor, match=pattern, count=100)
+                for key in keys:
+                    key_str = key.decode()
+                    # Key format: index:service_name:<service_name>
+                    service_name = key_str.split(':', 2)[-1]
+                    service_names.append(service_name)
+                if cursor == 0:
+                    break
+            return service_names
+        except Exception as e:
+            self.logger.error(f"Get all Server Error: {e}")
+            return []
+
+    def refresh_service_expiry(self, server_name: str, expire_seconds: int = 86400) -> bool:
+        """
+        Refresh the expiration time for all Redis keys associated with a specific service.
+
+        For the given service, this method renews the TTL (time-to-live) on:
+            - Each worker's main data key
+            - Each worker's max process key
+            - Each worker's running process key
+            - The service index key (used for service discovery)
+
+        The operation is performed atomically using a Redis pipeline to ensure
+        all keys are updated together efficiently.
+
+        Args:
+            server_name: The name of the service whose keys should be refreshed.
+            expire_seconds: New expiration time in seconds (default is 86400 seconds = 24 hours).
+
+        Returns:
+            True if all keys were successfully refreshed; False if no workers were
+            found for the service or if an error occurred during the operation.
+        """
+        try:
+            conn = self.get_connection()
+            worker_ids = self.scan_workers_by_service(server_name)
+            if not worker_ids:
+                self.logger.warning(f"Server '{server_name}' Not Fund worker")
+                return False
+
+            with conn.pipeline(transaction=False) as pipe:
+                # Refresh each worker's keys
+                for unique_id in worker_ids:
+                    main_key = self._get_worker_key(unique_id)
+                    max_key = self._get_max_process_key(unique_id)
+                    run_key = self._get_run_process_key(unique_id)
+                    pipe.expire(main_key, expire_seconds)
+                    pipe.expire(max_key, expire_seconds)
+                    pipe.expire(run_key, expire_seconds)
+
+                # Refresh the service index key
+                service_index_key = f"index:service_name:{server_name}"
+                pipe.expire(service_index_key, expire_seconds)
+
+                pipe.execute()
+            return True
+        except Exception as e:
+            self.logger.error(f"Refresh '{server_name}' Expiry Error: {e}")
+            return False
+
 
 @global_manager.register_fixture(name="fixture_redis_client", scope=Scope.GLOBAL)
 def _redis_client(fixture_config, fixture_logger):

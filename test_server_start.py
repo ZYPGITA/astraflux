@@ -10,10 +10,6 @@ current_dir = os.path.dirname(__file__)
 
 AstraFlux(yaml_path=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-logger().info('Hello, AstraFlux!')
-logger().warning(snowflake_id())
-logger().info(get_current_dir())
-
 start_scheduler()
 
 launch_register(services=[

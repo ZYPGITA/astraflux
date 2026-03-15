@@ -724,7 +724,6 @@ class UniversalScheduler:
 
             if self._scheduled_jobs.find_one({"_id": job_id}):
                 self.logger.warning(f"Job '{job_id}' already exists")
-                return False
 
             cron_scheduler = AdvancedCronScheduler(cron_expression, timezone=timezone)
             next_execution = cron_scheduler.get_next_execution_time()

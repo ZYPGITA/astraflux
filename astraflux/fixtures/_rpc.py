@@ -225,7 +225,7 @@ class RpcServer:
                 args = data.get('args', [])
                 kwargs = data.get('kwargs', {})
 
-                method = getattr(service_instance, method_name)
+                method = getattr(service_instance(), method_name)
                 result = method(*args, **kwargs)
                 response = dill.dumps({
                     'status': 'success',

@@ -233,3 +233,51 @@ def get_total_available_slots_by_server_name(server_name: str):
         return fixture_redis_client.get_total_available_slots_by_server_name(server_name=server_name)
 
     return global_manager.bind_fixture_func(_backcall)()
+
+
+def get_all_service_names():
+    """
+    Retrieve the names of all registered services.
+
+    Uses Redis SCAN command to iteratively find all keys matching the pattern
+    "index:service_name:*", extracts the service name from each key, and returns
+    a list of unique service names. This method is efficient for large key spaces
+    as it uses cursor-based iteration without blocking the server.
+
+    Returns:
+        A list of service name strings. If an error occurs or no services are
+        found, an empty list is returned.
+    """
+
+    def _backcall(fixture_redis_client):
+        return fixture_redis_client.get_all_service_names()
+
+    return global_manager.bind_fixture_func(_backcall)()
+
+
+def refresh_service_expiry(server_name: str, expire_seconds: int = 86400):
+    """
+    Refresh the expiration time for all Redis keys associated with a specific service.
+
+    For the given service, this method renews the TTL (time-to-live) on:
+        - Each worker's main data key
+        - Each worker's max process key
+        - Each worker's running process key
+        - The service index key (used for service discovery)
+
+    The operation is performed atomically using a Redis pipeline to ensure
+    all keys are updated together efficiently.
+
+    Args:
+        server_name: The name of the service whose keys should be refreshed.
+        expire_seconds: New expiration time in seconds (default is 86400 seconds = 24 hours).
+
+    Returns:
+        True if all keys were successfully refreshed; False if no workers were
+        found for the service or if an error occurred during the operation.
+    """
+
+    def _backcall(fixture_redis_client):
+        return fixture_redis_client.refresh_service_expiry(server_name=server_name, expire_seconds=expire_seconds)
+
+    return global_manager.bind_fixture_func(_backcall)()

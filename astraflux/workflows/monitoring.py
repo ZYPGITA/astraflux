@@ -5,7 +5,7 @@ import psutil
 import platform
 
 from astraflux.definitions.constants import *
-from astraflux.interface import ipaddr, converted_time, logger
+from astraflux.interface import ipaddr, converted_time, logger, get_all_service_names, refresh_service_expiry
 
 
 class PlatformInfo:
@@ -174,3 +174,8 @@ class SystemMonitoring:
         """
         node_info = NodeInfo()
         self.logger.info(f"{node_info.node}")
+
+        services = get_all_service_names()
+        for service in services:
+            refresh_service_expiry(service, expire_seconds=86400)
+            self.logger.debug(f"{service} refresh expiry 86400")
