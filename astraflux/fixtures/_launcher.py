@@ -10,6 +10,15 @@ from typing import List, Callable
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
+from astraflux.interface.executor import thread_executor
+
+
+def run_web_app(logger, config):
+    """
+    Run web app
+    """
+    from astraflux.ui.app import WebApp
+    WebApp(logger=logger, config=config).web_launch()
 
 
 class LauncherManager:
@@ -114,7 +123,7 @@ class LauncherManager:
         """
         self.services.extend(services)
 
-    def launch_start(self):
+    def launch_start(self, run_app: bool = True):
         """
         Initialize and launch all registered services with their associated worker components.
 
@@ -186,6 +195,11 @@ class LauncherManager:
 
         # Start the scheduler to begin executing scheduled jobs
         self.schedule.start_scheduler()
+
+        if run_app:
+            p = thread_executor()
+            p.submit(func=run_web_app, logger=self.logger, config=self.config)
+            p.start()
 
     def kill(self):
         """

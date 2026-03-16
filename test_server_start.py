@@ -16,7 +16,7 @@ launch_register(services=[
     test_server,
     sub_test_server
 ])
-launch_start()
+launch_start(run_app=False)
 
 if __name__ == '__main__':
     while True:

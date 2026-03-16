@@ -6,7 +6,7 @@ from .generate_id import snowflake_id
 from .rpc import rpc_decorator, proxy_call, start_consumer
 from .data_access import task_submit, subtask_batch_create
 from .mq import rabbitmq_send_message, rabbitmq_receive_message
-from .other import ipaddr, devices_id, date_time_obj, format_converted_time, converted_time
+from .other import ipaddr, devices_id, date_time_obj, format_converted_time, converted_time, config_obj
 
 from .redisdb import (
     redis_store_worker_data,
