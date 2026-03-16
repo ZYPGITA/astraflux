@@ -722,9 +722,6 @@ class UniversalScheduler:
             if not self._validate_job_parameters(job_id, cron_expression, function, execution_type, execution_mode):
                 return False
 
-            if self._scheduled_jobs.find_one({"_id": job_id}):
-                self.logger.warning(f"Job '{job_id}' already exists")
-
             cron_scheduler = AdvancedCronScheduler(cron_expression, timezone=timezone)
             next_execution = cron_scheduler.get_next_execution_time()
 
@@ -747,7 +744,12 @@ class UniversalScheduler:
             if allowed_ips is not None:
                 job_data["allowed_ips"] = allowed_ips
 
-            self._scheduled_jobs.insert_one(job_data)
+            if self._scheduled_jobs.find_one({"_id": job_id}):
+                self.logger.warning(f"Job '{job_id}' already exists")
+                self._scheduled_jobs.update_one({"_id": job_id}, {"$set": job_data})
+            else:
+                self._scheduled_jobs.insert_one(job_data)
+
             self.logger.info(f"Job '{job_id}' added successfully with mode: {execution_mode}")
             return True
 
@@ -819,10 +821,10 @@ def _schedule(fixture_config, fixture_logger):
     """
     schedule fixture
     """
-    _config = fixture_config
+    _mongodb_config = fixture_config[MONGODB.CONFIG.KEY.value]
     _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
 
     _universal_scheduler = UniversalScheduler(
-        config=_config, logger=_logger
+        config=_mongodb_config, logger=_logger
     )
     yield _universal_scheduler

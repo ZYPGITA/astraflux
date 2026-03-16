@@ -17,7 +17,7 @@ def launch_register(services: list):
     return global_manager.bind_fixture_func(_backcall)()
 
 
-def launch_start():
+def launch_start(run_app: bool = True):
     """
     Initialize and launch all registered services with their associated worker components.
 
@@ -48,6 +48,6 @@ def launch_start():
     """
 
     def _backcall(fixture_launcher):
-        return fixture_launcher.launch_start()
+        return fixture_launcher.launch_start(run_app=run_app)
 
     return global_manager.bind_fixture_func(_backcall)()

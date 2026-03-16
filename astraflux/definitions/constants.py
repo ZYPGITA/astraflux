@@ -188,6 +188,21 @@ class BUILD:
         SYSTEM_SERVICE_NAME = 'system_proxy'
 
 
+class WEB:
+    @unique
+    class CONFIG(Enum):
+        PROT = 'prot'
+        USERNAME = 'username'
+        PASSWORD = 'password'
+        SERVER_NAME = 'server_name'
+
+    class DEFAULT(Enum):
+        PROT = 7860
+        USERNAME = 'scheduleAdmin'
+        PASSWORD = 'scheduleAdminPassword'
+        SERVER_NAME = '127.0.0.1'
+
+
 CONFIGS = [
     MONGODB,
     REDIS,

@@ -50,7 +50,8 @@ __all__ = [
     'launch_register',
     'launch_start',
     'thread_executor',
-    'process_executor'
+    'process_executor',
+    'config_obj'
 ]
 
 
