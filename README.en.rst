@@ -44,6 +44,11 @@ The framework centrally manages core configurations such as middleware connectio
       path: logs  # Log storage directory
       level: INFO # Log level (DEBUG/INFO/WARN/ERROR)
 
+    # Web Manage Configuration
+    web:
+      prot: 7860
+      username: scheduleAdmin
+      password: scheduleAdminPassword
 
 Framework Usage Steps
 ---------------------

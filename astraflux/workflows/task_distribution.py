@@ -376,6 +376,7 @@ class TaskScheduler:
             # Update tasks that were scheduled
             mongodb_find_one_and_update_from_task(
                 query={TASK.CONFIG.ID.value: task_id, TASK.CONFIG.STATUS.value: STATUS.PENDING.value},
-                data={TASK.CONFIG.STATUS.value: STATUS.WAITING.value}
+                data={TASK.CONFIG.STATUS.value: STATUS.WAITING.value},
+                upsert=False
             )
             self.logger.debug(f"Update Task Status for {task_id} to Waiting")
