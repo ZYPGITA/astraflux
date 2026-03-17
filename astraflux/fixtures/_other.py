@@ -105,7 +105,7 @@ def _ipaddr():
     """
     socket_tools = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     socket_tools.connect((SOCKET.DEFAULT.BIND_IP.value, SOCKET.DEFAULT.BIND_PORT.value))
-    yield socket_tools.getsockname()[0]
+    return socket_tools.getsockname()[0]
 
 
 @global_manager.register_fixture(name="fixture_devices_id", scope=Scope.GLOBAL)
@@ -119,4 +119,4 @@ def _devices_id(fixture_ipaddr, fixture_current_dir):
     hash_object = hashlib.sha256(token_str.encode('utf-8'))
     hash_bytes = hash_object.digest()
     encoded_hash = base64.b64encode(hash_bytes)
-    yield encoded_hash.decode('utf-8')
+    return encoded_hash.decode('utf-8')

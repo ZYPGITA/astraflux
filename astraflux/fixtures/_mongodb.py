@@ -62,7 +62,7 @@ class MongoDBClient:
 
         self._collection = self._connection_pool[self._database][self._collection_name]
 
-    def find_one_and_update(self, query: Dict, data: Dict, upsert: bool = True):
+    def find_one_and_update(self, query: Dict, data: Dict, upsert: bool = False):
         """
         Finds a single document and updates it, or inserts a new one if not found.
 

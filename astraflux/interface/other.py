@@ -83,3 +83,14 @@ def converted_time(fmt=False, timezone=False):
         return fixture_time_processor(fmt, timezone).converted_time()
 
     return global_manager.bind_fixture_func(_backcall)()
+
+
+def config_obj():
+    """
+    Get Config Object
+    """
+
+    def _backcall(fixture_config):
+        return fixture_config
+
+    return global_manager.bind_fixture_func(_backcall)()

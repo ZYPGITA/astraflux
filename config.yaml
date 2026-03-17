@@ -20,3 +20,8 @@ rabbitmq:
 logger:
   path: logs
   level: INFO
+
+web:
+  prot: 7860
+  username: scheduleAdmin
+  password: scheduleAdminPassword

@@ -8,6 +8,7 @@ from pika.exceptions import ChannelClosed
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
+from astraflux.interface.generate_id import snowflake_id
 
 
 class ServiceUnavailableError(Exception):
@@ -27,11 +28,11 @@ class RpcClient:
         queue (str): The RabbitMQ queue name
     """
 
-    def __init__(self, corr_id: str, config: dict):
+    def __init__(self, config: dict):
         self.timeout = RPC.DEFAULT.RPC_CALL_TIMEOUT.value
 
         self.response = None
-        self.corr_id = corr_id
+        self.corr_id = None
 
         self._host = config[RABBITMQ.CONFIG.HOST.value]
         self._port = config[RABBITMQ.CONFIG.PORT.value]
@@ -137,6 +138,8 @@ class RpcClient:
             ServiceUnavailableError: If the specified service is not available.
             TimeoutError: If the RPC call times out.
         """
+        self.corr_id = snowflake_id()
+        self.response = None
 
         if not self._check_service_available(service_name):
             raise ServiceUnavailableError(service_name)
@@ -259,19 +262,17 @@ class RpcServer:
 
 
 @global_manager.register_fixture(name="fixture_rpc_client", scope=Scope.THREAD)
-def _rpc_client(fixture_config, fixture_generate_id):
+def _rpc_client(fixture_config):
     """
     Create a RabbitMQ RPC client.
     Args:
         fixture_config: The configuration for the RPC client.
-        fixture_generate_id : The id of the fixture.
     Returns:
         RpcClient: The RabbitMQ RPC client.
     """
-    _corr_id = fixture_generate_id.snowflake_id()
     _rabbitmq_config = fixture_config[RABBITMQ.CONFIG.KEY.value]
 
-    rpc_client = RpcClient(corr_id=_corr_id, config=_rabbitmq_config)
+    rpc_client = RpcClient(config=_rabbitmq_config)
     yield rpc_client
     rpc_client.connection.close()
 

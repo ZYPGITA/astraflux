@@ -223,7 +223,8 @@ class MessageQueueHandler:
             return True
 
         # Check task status from Mongodb
-        tasks = mongodb_find_from_task(query={}, fields={'status': 1})
+        tasks = mongodb_find_from_task(
+            query={TASK.CONFIG.ID.value: task_data[TASK.CONFIG.ID.value]}, fields={'status': 1})
         task_status = tasks[0]['status']
 
         return task_status != STATUS.STOPPED.value
