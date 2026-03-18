@@ -123,7 +123,7 @@ class LauncherManager:
         """
         self.services.extend(services)
 
-    def launch_start(self, run_app: bool = True):
+    def launch_start(self, run_app: bool = True, scheduled: bool = True):
         """
         Initialize and launch all registered services with their associated worker components.
 
@@ -168,33 +168,34 @@ class LauncherManager:
             worker_pid = self._launch_service_component(worker_launcher, service_class_path)
             self.logger.info(f"Worker started with PID: {worker_pid}")
 
-        # Import system-level workflow components
-        from astraflux.workflows.task_distribution import TaskScheduler
-        from astraflux.workflows.monitoring import SystemMonitoring
+        if scheduled:
+            # Import system-level workflow components
+            from astraflux.workflows.task_distribution import TaskScheduler
+            from astraflux.workflows.monitoring import SystemMonitoring
 
-        # Configure and schedule the TaskScheduler job
-        # This job runs every 10 seconds and is responsible for distributing tasks
-        # across available workers in a distributed environment
-        self.schedule.add_scheduled_job(
-            job_id='TaskScheduler',
-            cron_expression='*/10 * * * * *',  # Every 10 seconds
-            execution_type='thread',  # Execute in a separate thread
-            function=TaskScheduler().execute,  # Function to execute
-            execution_mode='distributed_unique'  # Ensure only one instance runs in the cluster
-        )
+            # Configure and schedule the TaskScheduler job
+            # This job runs every 10 seconds and is responsible for distributing tasks
+            # across available workers in a distributed environment
+            self.schedule.add_scheduled_job(
+                job_id='TaskScheduler',
+                cron_expression='*/10 * * * * *',  # Every 10 seconds
+                execution_type='thread',  # Execute in a separate thread
+                function=TaskScheduler().execute,  # Function to execute
+                execution_mode='distributed_unique'  # Ensure only one instance runs in the cluster
+            )
 
-        # Configure and schedule the SystemMonitoring job
-        # This job runs every 30 seconds and monitors system health and performance
-        self.schedule.add_scheduled_job(
-            job_id='SystemMonitoring',
-            cron_expression='*/30 * * * * *',  # Every 30 seconds
-            execution_type='thread',  # Execute in a separate thread
-            function=SystemMonitoring().run,  # Function to execute
-            execution_mode='ip_unique'  # Ensure one instance per IP address
-        )
+            # Configure and schedule the SystemMonitoring job
+            # This job runs every 30 seconds and monitors system health and performance
+            self.schedule.add_scheduled_job(
+                job_id='SystemMonitoring',
+                cron_expression='*/30 * * * * *',  # Every 30 seconds
+                execution_type='thread',  # Execute in a separate thread
+                function=SystemMonitoring().run,  # Function to execute
+                execution_mode='ip_unique'  # Ensure one instance per IP address
+            )
 
-        # Start the scheduler to begin executing scheduled jobs
-        self.schedule.start_scheduler()
+            # Start the scheduler to begin executing scheduled jobs
+            self.schedule.start_scheduler()
 
         if run_app:
             p = thread_executor()
