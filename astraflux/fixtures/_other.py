@@ -103,9 +103,17 @@ def _ipaddr():
     Returns:
         str: The IP address of the current machine.
     """
-    socket_tools = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_tools.connect((SOCKET.DEFAULT.BIND_IP.value, SOCKET.DEFAULT.BIND_PORT.value))
-    return socket_tools.getsockname()[0]
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((SOCKET.DEFAULT.BIND_IP.value, SOCKET.DEFAULT.BIND_PORT.value))
+        ip = s.getsockname()[0]
+    except socket.error:
+        hostname = socket.gethostname()
+        ip = socket.gethostbyname(hostname)
+    finally:
+        s.close()
+    return ip
 
 
 @global_manager.register_fixture(name="fixture_devices_id", scope=Scope.GLOBAL)

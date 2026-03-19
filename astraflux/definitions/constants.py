@@ -109,7 +109,7 @@ class LOGGER:
 class SOCKET:
     @unique
     class DEFAULT(Enum):
-        BIND_IP = '127.0.0.1'
+        BIND_IP = '10.255.255.255'
         BIND_PORT = 80
 
 
