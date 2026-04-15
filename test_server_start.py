@@ -10,13 +10,11 @@ current_dir = os.path.dirname(__file__)
 
 AstraFlux(yaml_path=f'{current_dir}/config.yaml', current_dir=current_dir)
 
-start_scheduler()
-
 launch_register(services=[
     test_server,
     sub_test_server
 ])
-launch_start(run_app=False)
+launch_start()
 
 if __name__ == '__main__':
     while True:

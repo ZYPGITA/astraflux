@@ -5,8 +5,11 @@ import time
 import psutil
 import logging
 import subprocess
+import gradio as gr
 from pathlib import Path
 from typing import List, Callable
+
+from astraflux.ui.app import WebApp
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
@@ -17,7 +20,7 @@ def run_web_app(logger, config):
     """
     Run web app
     """
-    from astraflux.ui.app import WebApp
+
     WebApp(logger=logger, config=config).web_launch()
 
 
@@ -198,9 +201,9 @@ class LauncherManager:
             self.schedule.start_scheduler()
 
         if run_app:
-            p = thread_executor()
-            p.submit(func=run_web_app, logger=self.logger, config=self.config)
-            p.start()
+            t = thread_executor()
+            t.submit(func=run_web_app, logger=self.logger, config=self.config)
+            t.start()
 
     def kill(self):
         """

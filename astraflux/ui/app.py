@@ -15,7 +15,7 @@ class WebApp:
         self.logger = logger
         self.config = config
 
-        self.prot = config.get(WEB.CONFIG.PROT.value, WEB.DEFAULT.PROT.value)
+        self.prot = config.get(WEB.CONFIG.PORT.value, WEB.DEFAULT.PORT.value)
         self.server_name = config.get(WEB.CONFIG.SERVER_NAME.value, WEB.DEFAULT.SERVER_NAME.value)
         self.username = config.get(WEB.CONFIG.USERNAME.value, WEB.DEFAULT.USERNAME.value)
         self.password = config.get(WEB.CONFIG.PASSWORD.value, WEB.DEFAULT.PASSWORD.value)
@@ -64,6 +64,7 @@ class WebApp:
         )
 
     def web_launch(self):
+
         with gr.Blocks() as demo:
             # Global state: control visibility of login page/homepage
             login_panel = gr.Column(visible=True, elem_classes="login-container")
