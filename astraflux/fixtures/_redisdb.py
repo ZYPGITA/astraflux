@@ -756,7 +756,7 @@ def _redis_client(fixture_config, fixture_logger):
         An initialized instance of RedisWorkerClient
     """
     _redis_config = fixture_config[REDIS.CONFIG.KEY.value]
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, RABBITMQ.CONFIG.KEY.value)
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, REDIS.CONFIG.KEY.value)
 
     _redis_producer = RedisWorkerClient(
         config=_redis_config,

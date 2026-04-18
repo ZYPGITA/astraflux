@@ -21,7 +21,7 @@ def run_web_app(logger, config):
     Run web app
     """
 
-    WebApp(logger=logger, config=config).web_launch()
+    WebApp(logger=logger, config=config[WEB.CONFIG.KEY.value]).web_launch()
 
 
 class LauncherManager:

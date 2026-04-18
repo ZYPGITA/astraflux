@@ -223,7 +223,7 @@ def _mongodb_tasks(fixture_config, fixture_logger):
     """
 
     _mongodb_config = fixture_config[MONGODB.CONFIG.KEY.value]
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, RABBITMQ.CONFIG.KEY.value)
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, MONGODB.CONFIG.KEY.value)
 
     _mongodb_producer = TASKS(
         config=_mongodb_config,

@@ -191,6 +191,7 @@ class BUILD:
 class WEB:
     @unique
     class CONFIG(Enum):
+        KEY = 'web'
         PORT = 'port'
         USERNAME = 'username'
         PASSWORD = 'password'
@@ -201,6 +202,26 @@ class WEB:
         USERNAME = 'scheduleAdmin'
         PASSWORD = 'scheduleAdminPassword'
         SERVER_NAME = '127.0.0.1'
+
+
+class OpenClaw:
+    @unique
+    class CONFIG(Enum):
+        KEY = 'openclaw'
+
+        SERVER = 'server'
+        TOKEN = 'token'
+        SESSION_KEY = 'session_key'
+        TEMPORARY_DIRECTORY = 'temporary_directory'
+        EXPAND_SKILL_DIRECTORY = 'expand_skill_directory'
+
+    class DEFAULT(Enum):
+        SERVER = 'http://127.0.0.1:18789'
+
+        TOKEN = 'None'
+        SESSION_KEY = 'x-session'
+        TEMPORARY_DIRECTORY = 'temporary_directory'
+        EXPAND_SKILL_DIRECTORY = 'expand_skill_directory'
 
 
 CONFIGS = [

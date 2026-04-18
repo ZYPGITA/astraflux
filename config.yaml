@@ -25,3 +25,10 @@ web:
   port: 7860
   username: scheduleAdmin
   password: scheduleAdminPassword
+
+openclaw:
+  temporary_directory: temporary_directory
+  expand_skill_directory: skill
+  server: http://127.0.0.1:18789
+  session_key: x-session
+  token: fdab5ad1568d556d5f81ff5252d09cbca10fa6736af84b56
