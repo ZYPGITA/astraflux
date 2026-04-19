@@ -580,7 +580,7 @@ def _thread_executor(fixture_config, fixture_logger):
         retry mechanism for failed tasks
     """
     _config = fixture_config
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'ThreadExecutor')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'thread_executor')
 
     yield ThreadPoolExecutorWithRetry(logger=_logger)
 
@@ -604,6 +604,6 @@ def _process_executor(fixture_config, fixture_logger):
         retry mechanism for failed tasks, optimized for CPU-bound operations
     """
     _config = fixture_config
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'ProcessExecutor')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'process_executor')
 
     yield ProcessPoolExecutorWithRetry(logger=_logger)

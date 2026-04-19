@@ -346,7 +346,7 @@ class UniversalScheduler:
             daemon=True
         )
         self._scheduler_thread.start()
-        self.logger.info("Universal scheduler started successfully")
+        self.logger.debug("Universal scheduler started successfully")
 
     def stop_scheduler(self) -> None:
         """
@@ -356,7 +356,7 @@ class UniversalScheduler:
             self.logger.warning("Scheduler is not running")
             return
 
-        self.logger.info("Stopping distributed job scheduler...")
+        self.logger.debug("Stopping distributed job scheduler...")
         self._scheduler_active.clear()
 
         # Wait for scheduler thread to finish
@@ -367,13 +367,13 @@ class UniversalScheduler:
 
         # Stop all lock refresh threads
         self._stop_all_lock_refreshers()
-        self.logger.info("Distributed job scheduler stopped successfully")
+        self.logger.debug("Distributed job scheduler stopped successfully")
 
     def _scheduling_loop(self) -> None:
         """
         Main scheduling loop that checks for due jobs
         """
-        self.logger.info("Scheduling loop started")
+        self.logger.debug("Scheduling loop started")
 
         while self._scheduler_active.is_set():
             try:
@@ -750,7 +750,7 @@ class UniversalScheduler:
             else:
                 self._scheduled_jobs.insert_one(job_data)
 
-            self.logger.info(f"Job '{job_id}' added successfully with mode: {execution_mode}")
+            self.logger.debug(f"Job '{job_id}' added successfully with mode: {execution_mode}")
             return True
 
         except Exception as e:
@@ -797,7 +797,7 @@ class UniversalScheduler:
             result = self._scheduled_jobs.delete_one({"_id": job_id})
 
             if result.deleted_count > 0:
-                self.logger.info(f"Job '{job_id}' removed successfully")
+                self.logger.debug(f"Job '{job_id}' removed successfully")
                 # Clean up all possible lock types for this job
                 for execution_mode in [ExecutionMode.DISTRIBUTED_UNIQUE.value, ExecutionMode.IP_UNIQUE.value]:
                     lock_key = self._get_lock_key(job_id, execution_mode)
@@ -822,7 +822,7 @@ def _schedule(fixture_config, fixture_logger):
     schedule fixture
     """
     _mongodb_config = fixture_config[MONGODB.CONFIG.KEY.value]
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'schedule_manager')
 
     _universal_scheduler = UniversalScheduler(
         config=_mongodb_config, logger=_logger

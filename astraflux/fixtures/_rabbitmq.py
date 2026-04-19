@@ -123,7 +123,7 @@ class ThreadSafeRabbitMQProducer:
                 channel.basic_qos(prefetch_count=1)
                 self._consumer_channels[conn_id] = channel
 
-            self.logger.info(f"Successfully created RabbitMQ {conn_type} connection {conn_id}")
+            self.logger.debug(f"Successfully created RabbitMQ {conn_type} connection {conn_id}")
             return connection
 
         except Exception as e:
@@ -338,13 +338,14 @@ class ThreadSafeRabbitMQProducer:
                     consumer_tag=consumer_tag
                 )
 
-                self.logger.info(
-                    f"Thread {threading.current_thread().name} started consuming queue {queue} (consumer_tag: {consumer_tag})")
+                self.logger.debug(
+                    f"Thread {threading.current_thread().name} started consuming "
+                    f"queue {queue} (consumer_tag: {consumer_tag})")
 
                 try:
                     channel.start_consuming()
                 except KeyboardInterrupt:
-                    self.logger.info(f"Consumer {consumer_tag} interrupted")
+                    self.logger.debug(f"Consumer {consumer_tag} interrupted")
                     channel.stop_consuming()
                     break
                 except Exception as e:
@@ -384,14 +385,14 @@ class ThreadSafeRabbitMQProducer:
             for conn_id, connection in list(self._producer_connections.items()):
                 try:
                     connection.close()
-                    self.logger.info(f"Closed producer connection {conn_id}")
+                    self.logger.debug(f"Closed producer connection {conn_id}")
                 except Exception as e:
                     self.logger.error(f"Error closing producer connection {conn_id}: {e}")
 
             for conn_id, connection in list(self._consumer_connections.items()):
                 try:
                     connection.close()
-                    self.logger.info(f"Closed consumer connection {conn_id}")
+                    self.logger.debug(f"Closed consumer connection {conn_id}")
                 except Exception as e:
                     self.logger.error(f"Error closing consumer connection {conn_id}: {e}")
 

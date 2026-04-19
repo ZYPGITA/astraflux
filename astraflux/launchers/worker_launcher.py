@@ -145,6 +145,7 @@ class MessageQueueHandler:
             current_dir: Current working directory
             logger: Logger instance for message handling
             worker_name: Worker component name
+            unique_id: Worker unique identifier
         """
         self.class_path = class_path
         self.yaml_config = yaml_config
@@ -163,8 +164,7 @@ class MessageQueueHandler:
             properties: Message properties
             body: Message body containing task data
         """
-        # Acknowledge message receipt
-        channel.basic_ack(delivery_tag=method.delivery_tag)
+        delivery_tag = method.delivery_tag
 
         try:
             task_data = json.loads(body.decode())
@@ -172,40 +172,52 @@ class MessageQueueHandler:
             # Validate task data contains required ID
             if TASK.CONFIG.ID.value not in task_data:
                 self.logger.error(f'Invalid task data missing ID: {task_data}')
+                # ACK invalid messages to remove them from queue (no point retrying)
+                channel.basic_ack(delivery_tag=delivery_tag)
+                return
+
+            # Check if task should be executed
+            if not self._should_execute_task(task_data):
+                # Task should not be executed (e.g., status is STOPPED)
+                # ACK to remove from queue
+                channel.basic_ack(delivery_tag=delivery_tag)
+                return
+
+            # Check worker capacity
+            if not self._has_available_worker_capacity():
+                # This ensures message is not lost if republish fails
+                self.logger.debug(f"No available capacity, requeuing task {task_data.get(TASK.CONFIG.ID.value)}")
+                # Sleep briefly to prevent tight loop
+                time.sleep(0.1)
+                # Nack with requeue=True to put message back in queue
+                channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
                 return
 
             # Dispatch task for execution
-            self._dispatch_task_to_worker(task_data, channel, body)
+            self._execute_task_in_isolated_process(task_data)
+
+            # This ensures message is acknowledged only when we're certain
+            # the task has been handed off to a worker process
+            channel.basic_ack(delivery_tag=delivery_tag)
+
+        except json.JSONDecodeError as json_error:
+            self.logger.error(f'Failed to parse message JSON: {json_error}')
+            # ACK malformed messages to remove them from queue
+            channel.basic_ack(delivery_tag=delivery_tag)
 
         except Exception as processing_error:
             self.logger.error(f'Message processing error: {processing_error}')
 
-    def _dispatch_task_to_worker(self, task_data: dict, channel, body):
-        """
-        Dispatch task to available worker process with capacity checking.
-
-        Args:
-            task_data: Task data dictionary
-            channel: RabbitMQ channel for requeueing if needed
-            body: Original message body
-        """
-        # Check if task should be executed
-        if not self._should_execute_task(task_data):
-            return
-
-        # Check worker capacity
-        if not self._has_available_worker_capacity():
-            # Requeue task if no capacity available
-            time.sleep(0.2)
-            channel.basic_publish(
-                body=body,
-                exchange='',
-                routing_key=self.worker_name
-            )
-            return
-
-        # Execute task in separate process
-        self._execute_task_in_isolated_process(task_data)
+            # This prevents message loss while allowing retry
+            try:
+                channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+            except Exception as nack_error:
+                self.logger.error(f'Failed to NACK message: {nack_error}')
+                # If NACK fails, try ACK to prevent message from being stuck
+                try:
+                    channel.basic_ack(delivery_tag=delivery_tag)
+                except Exception:
+                    pass
 
     def _should_execute_task(self, task_data: dict) -> bool:
         """
@@ -223,11 +235,18 @@ class MessageQueueHandler:
             return True
 
         # Check task status from Mongodb
-        tasks = mongodb_find_from_task(
-            query={TASK.CONFIG.ID.value: task_data[TASK.CONFIG.ID.value]}, fields={'status': 1})
-        task_status = tasks[0]['status']
+        try:
+            tasks = mongodb_find_from_task(
+                query={TASK.CONFIG.ID.value: task_data[TASK.CONFIG.ID.value]},
+                fields={'status': 1}
+            )
+            if tasks and len(tasks) > 0:
+                task_status = tasks[0].get('status')
+                return task_status != STATUS.STOPPED.value
+        except Exception as e:
+            self.logger.error(f'Failed to check task status: {e}')
 
-        return task_status != STATUS.STOPPED.value
+        return True
 
     def _has_available_worker_capacity(self) -> bool:
         """

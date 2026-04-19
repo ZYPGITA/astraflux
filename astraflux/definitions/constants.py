@@ -195,13 +195,13 @@ class WEB:
         PORT = 'port'
         USERNAME = 'username'
         PASSWORD = 'password'
-        SERVER_NAME = 'server_name'
+        BIND_IP = 'bind_ip'
 
     class DEFAULT(Enum):
         PORT = 7860
         USERNAME = 'scheduleAdmin'
         PASSWORD = 'scheduleAdminPassword'
-        SERVER_NAME = '127.0.0.1'
+        BIND_IP = '0.0.0.0'
 
 
 class OpenClaw:

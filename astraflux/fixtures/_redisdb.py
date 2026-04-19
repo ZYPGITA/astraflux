@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-
 import time
 import json
 import logging
@@ -13,25 +12,24 @@ from redis import Redis
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
 
+DEFAULT_MAX_PROCESS = 10
+
 
 class RedisWorkerClient:
     """
-    A thread-safe Redis client specifically designed for managing worker-related data operations.
-    This client handles storage, retrieval, and update of worker metadata (such as max process count,
-    running process list), maintains Redis key naming conventions, and uses connection pooling for
-    efficient connection management. All operations are wrapped with exception handling and logging
-    for robust error tracking.
+    A thread-safe Redis client for managing worker-related data operations.
+    Handles storage, retrieval, and updates of worker metadata including max process count
+    and running process lists. Uses connection pooling and maintains Redis key naming conventions.
+    All operations include exception handling and logging for robust error tracking.
     """
 
     def __init__(self, config: Dict[str, Any], logger: logging.Logger):
         """
-        Initialize the RedisWorkerClient with configuration parameters and logger.
-        Establishes a Redis connection pool with specified timeout and retry settings,
-        and initializes a reentrant lock for thread-safe operations.
+        Initialize the RedisWorkerClient with configuration and logger.
 
         Args:
-            config: A dictionary containing Redis connection configuration (host, port, password, etc.)
-            logger: A logging.Logger instance for recording error and operational logs
+            config: Dictionary containing Redis connection configuration
+            logger: Logger instance for recording operational logs
         """
         self.logger = logger
 
@@ -57,69 +55,63 @@ class RedisWorkerClient:
 
     def get_connection(self) -> Redis:
         """
-        Retrieve a Redis connection instance from the pre-configured connection pool.
-        The connection is automatically managed by the pool and does not require manual closing.
+        Retrieve a Redis connection from the connection pool.
 
         Returns:
-            A Redis client instance bound to the connection pool
+            Redis client instance bound to the connection pool
         """
         return redis.Redis(connection_pool=self._connection_pool)
 
     @staticmethod
     def _get_worker_key(unique_id: str) -> str:
         """
-        Generate the Redis key for storing the main metadata of a specific worker.
-        Follows the naming convention: "worker:{unique_id}".
+        Generate Redis key for worker metadata.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            The fully qualified Redis key for the worker's main data
+            Redis key string: "worker:{unique_id}"
         """
         return f"worker:{unique_id}"
 
     @staticmethod
     def _get_run_process_key(unique_id: str) -> str:
         """
-        Generate the Redis key for storing the running process list of a specific worker.
-        The running processes are stored as a sorted set (ZSET).
-        Follows the naming convention: "worker:{unique_id}:run_process".
+        Generate Redis key for running process list (sorted set).
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            The fully qualified Redis key for the worker's running process list
+            Redis key string: "worker:{unique_id}:run_process"
         """
         return f"worker:{unique_id}:run_process"
 
     @staticmethod
     def _get_max_process_key(unique_id: str) -> str:
         """
-        Generate the Redis key for storing the maximum allowed process count of a specific worker.
-        Follows the naming convention: "worker:{unique_id}:max_process".
+        Generate Redis key for max process count.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            The fully qualified Redis key for the worker's max process count
+            Redis key string: "worker:{unique_id}:max_process"
         """
         return f"worker:{unique_id}:max_process"
 
     def store_worker_data(self, data: Dict[str, Any]) -> bool:
         """
-        Store the complete metadata of a worker into Redis with transactional consistency.
-        Separates worker main data, max process count, and running process list into dedicated keys,
-        serializes JSON-compatible fields (service_functions, worker_functions), sets an expiration
-        time of 24 hours for all keys, and maintains a service name index for worker discovery.
+        Store complete worker metadata in Redis with transaction consistency.
+        Separates data into dedicated keys, serializes JSON fields, sets 24-hour expiration,
+        and maintains service name index for worker discovery.
 
         Args:
-            data: A dictionary containing the worker's metadata (must include 'unique_id' field)
+            data: Worker metadata dictionary containing 'unique_id'
 
         Returns:
-            Boolean indicating whether the storage operation succeeded (True) or failed (False)
+            True if storage succeeded, False otherwise
         """
         if 'unique_id' not in data:
             raise ValueError("Data must contain 'unique_id' field")
@@ -133,7 +125,9 @@ class RedisWorkerClient:
                 main_data = data.copy()
 
                 worker_run_process = main_data.pop('worker_run_process', [])
-                worker_max_process = main_data.pop('worker_max_process', 0)
+
+                raw_max_process = main_data.pop('worker_max_process', DEFAULT_MAX_PROCESS)
+                worker_max_process = self._validate_max_process(raw_max_process)
 
                 for key in ['service_functions', 'worker_functions']:
                     if key in main_data:
@@ -141,7 +135,6 @@ class RedisWorkerClient:
 
                 main_key = self._get_worker_key(unique_id)
                 if main_data:
-                    # 兼容旧版 Redis 服务器和 redis-py 客户端
                     hmset_args = [main_key]
                     for field, value in main_data.items():
                         hmset_args.append(field)
@@ -179,18 +172,44 @@ class RedisWorkerClient:
             self.logger.error(f"Error storing worker data: {e}")
             return False
 
-    def get_max_process(self, unique_id: str) -> Optional[int]:
+    def _validate_max_process(self, value: Any) -> int:
         """
-        Retrieve the maximum allowed process count for a specific worker.
-        Prioritizes fetching from the dedicated max process key for performance. If the key does not exist,
-        falls back to the worker's main data key and synchronizes the value to the dedicated key for
-        future queries. Handles byte decoding and type conversion from string to integer.
+        Validate and normalize max_process value to ensure it is at least 1.
 
         Args:
-            unique_id: The unique identifier of the worker
+            value: Raw max_process value
 
         Returns:
-            The maximum process count as an integer if available, None if the key does not exist or an error occurs
+            Validated integer >= 1, defaults to DEFAULT_MAX_PROCESS if invalid
+        """
+        try:
+            if value is None:
+                return DEFAULT_MAX_PROCESS
+
+            int_value = int(value)
+
+            if int_value <= 0:
+                self.logger.warning(
+                    f"Invalid max_process value {int_value}, using default {DEFAULT_MAX_PROCESS}"
+                )
+                return DEFAULT_MAX_PROCESS
+
+            return int_value
+        except (ValueError, TypeError) as e:
+            self.logger.warning(
+                f"Failed to parse max_process value {value}, using default {DEFAULT_MAX_PROCESS}: {e}"
+            )
+            return DEFAULT_MAX_PROCESS
+
+    def get_max_process(self, unique_id: str) -> Optional[int]:
+        """
+        Retrieve max process count for a worker.
+
+        Args:
+            unique_id: Unique identifier of the worker
+
+        Returns:
+            Max process count as integer, or None if not found
         """
         try:
             conn = self.get_connection()
@@ -203,7 +222,18 @@ class RedisWorkerClient:
                 if result:
                     conn.set(key, result)
 
-            return int(result.decode()) if result else None
+            if result is None:
+                return None
+
+            max_process = int(result.decode())
+
+            if max_process <= 0:
+                self.logger.warning(
+                    f"Retrieved invalid max_process {max_process} for {unique_id}, returning default"
+                )
+                return DEFAULT_MAX_PROCESS
+
+            return max_process
 
         except Exception as e:
             self.logger.error(f"Error getting max_process: {e}")
@@ -211,26 +241,26 @@ class RedisWorkerClient:
 
     def update_max_process(self, unique_id: str, new_value: int) -> bool:
         """
-        Update the maximum allowed process count for a specific worker with transactional consistency.
-        Synchronizes the new value to both the dedicated max process key and the worker's main data key
-        using a Redis pipeline to ensure atomicity of the two write operations.
+        Update max process count for a worker with transaction consistency.
 
         Args:
-            unique_id: The unique identifier of the worker
-            new_value: The new maximum process count to set
+            unique_id: Unique identifier of the worker
+            new_value: New max process count
 
         Returns:
-            Boolean indicating whether the update operation succeeded (True) or failed (False)
+            True if update succeeded, False otherwise
         """
         try:
+            validated_value = self._validate_max_process(new_value)
+
             conn = self.get_connection()
 
             with conn.pipeline(transaction=True) as pipe:
                 max_key = self._get_max_process_key(unique_id)
-                pipe.set(max_key, str(new_value))
+                pipe.set(max_key, str(validated_value))
 
                 main_key = self._get_worker_key(unique_id)
-                pipe.hset(main_key, 'worker_max_process', str(new_value))
+                pipe.hset(main_key, 'worker_max_process', str(validated_value))
 
                 pipe.execute()
 
@@ -242,22 +272,27 @@ class RedisWorkerClient:
 
     def increment_max_process(self, unique_id: str, delta: int = 1) -> Optional[int]:
         """
-        Increment the maximum allowed process count for a specific worker by a specified delta.
-        Uses Redis's atomic INCRBY operation to avoid race conditions during concurrent updates.
-        Synchronizes the updated value to the worker's main data key after the increment.
+        Increment max process count atomically.
 
         Args:
-            unique_id: The unique identifier of the worker
-            delta: The integer value to increment the max process count by (default: 1)
+            unique_id: Unique identifier of the worker
+            delta: Amount to increment by (default: 1)
 
         Returns:
-            The updated maximum process count as an integer if the operation succeeds, None if an error occurs
+            Updated max process count, or None if error occurs
         """
         try:
             conn = self.get_connection()
             key = self._get_max_process_key(unique_id)
 
             result = conn.incrby(key, delta)
+
+            if result <= 0:
+                self.logger.warning(
+                    f"Increment resulted in invalid max_process {result}, resetting to default"
+                )
+                result = DEFAULT_MAX_PROCESS
+                conn.set(key, str(result))
 
             main_key = self._get_worker_key(unique_id)
             conn.hset(main_key, 'worker_max_process', str(result))
@@ -270,15 +305,13 @@ class RedisWorkerClient:
 
     def get_run_process_count(self, unique_id: str) -> int:
         """
-        Retrieve the number of currently running processes for a specific worker.
-        Counts the number of members in the running process sorted set using Redis ZCARD operation.
-        Returns 0 if the key does not exist or an error occurs during the operation.
+        Get number of currently running processes for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            The count of running processes as a non-negative integer
+            Count of running processes
         """
         try:
             conn = self.get_connection()
@@ -290,16 +323,13 @@ class RedisWorkerClient:
 
     def get_all_run_process(self, unique_id: str) -> List[int]:
         """
-        Retrieve the complete list of currently running process IDs for a specific worker.
-        Fetches all members from the running process sorted set using Redis ZRANGE, decodes byte strings
-        to UTF-8, and converts each process ID to an integer (falls back to string if conversion fails).
-        Returns an empty list if the key does not exist or an error occurs.
+        Get list of currently running process IDs for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            A list of integers representing the running process IDs
+            List of running process IDs
         """
         try:
             conn = self.get_connection()
@@ -321,17 +351,14 @@ class RedisWorkerClient:
 
     def add_to_run_process(self, unique_id: str, process_id: int) -> bool:
         """
-        Add a single process ID to the running process list of a specific worker.
-        Uses the current Unix timestamp as the score for the sorted set to maintain insertion order.
-        Synchronizes the updated running process list to the worker's main data key after addition.
-        Returns True if the process ID was successfully added (new member), False otherwise.
+        Add a process ID to the running process list.
 
         Args:
-            unique_id: The unique identifier of the worker
-            process_id: The integer ID of the process to add
+            unique_id: Unique identifier of the worker
+            process_id: Process ID to add
 
         Returns:
-            Boolean indicating whether the process ID was successfully added
+            True if process was added, False otherwise
         """
         try:
             conn = self.get_connection()
@@ -348,24 +375,19 @@ class RedisWorkerClient:
 
     def batch_add_to_run_process(self, unique_id: str, process_ids: List[int]) -> int:
         """
-        Batch add multiple process IDs to the running process list of a specific worker.
-        Generates unique scores for each process ID by appending a small index-based offset to the
-        current Unix timestamp (to avoid score collisions in the sorted set). Uses Redis ZADD to
-        batch insert the process IDs and synchronizes the list to the worker's main data key.
-        Returns the number of successfully added new process IDs.
+        Add multiple process IDs to the running process list.
 
         Args:
-            unique_id: The unique identifier of the worker
-            process_ids: A list of integer process IDs to add
+            unique_id: Unique identifier of the worker
+            process_ids: List of process IDs to add
 
         Returns:
-            The count of successfully added process IDs (non-negative integer)
+            Number of successfully added process IDs
         """
         try:
             conn = self.get_connection()
             key = self._get_run_process_key(unique_id)
 
-            import time
             current_time = time.time()
 
             zset_data = {}
@@ -386,17 +408,14 @@ class RedisWorkerClient:
 
     def remove_from_run_process(self, unique_id: str, process_id: int) -> bool:
         """
-        Remove a single process ID from the running process list of a specific worker.
-        Uses Redis ZREM operation to delete the process ID from the sorted set.
-        Synchronizes the updated running process list to the worker's main data key if the removal
-        was successful. Returns True if the process ID was found and removed, False otherwise.
+        Remove a process ID from the running process list.
 
         Args:
-            unique_id: The unique identifier of the worker
-            process_id: The integer ID of the process to remove
+            unique_id: Unique identifier of the worker
+            process_id: Process ID to remove
 
         Returns:
-            Boolean indicating whether the process ID was successfully removed
+            True if process was removed, False otherwise
         """
         try:
             conn = self.get_connection()
@@ -415,16 +434,13 @@ class RedisWorkerClient:
 
     def clear_run_process(self, unique_id: str) -> bool:
         """
-        Clear all running process IDs from the running process list of a specific worker.
-        Deletes the entire running process sorted set using Redis DELETE and resets the
-        'worker_run_process' field in the worker's main data key to an empty JSON array.
-        Returns True if any data was deleted (i.e., the key existed), False otherwise.
+        Clear all running process IDs for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            Boolean indicating whether the running process list was successfully cleared
+            True if running process list was cleared, False otherwise
         """
         try:
             conn = self.get_connection()
@@ -443,13 +459,10 @@ class RedisWorkerClient:
 
     def _sync_run_process_to_main(self, unique_id: str) -> None:
         """
-        Internal helper method to synchronize the running process list to the worker's main data key.
-        Fetches the current running process list, serializes it to a JSON string, and updates the
-        'worker_run_process' field in the worker's main hash key. Logs any errors that occur during
-        the synchronization process without propagating exceptions.
+        Synchronize running process list to worker's main data key.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
         """
         try:
             conn = self.get_connection()
@@ -464,17 +477,13 @@ class RedisWorkerClient:
 
     def get_available_slots(self, unique_id: str) -> int:
         """
-        Calculate the number of available process slots for a specific worker.
-        Available slots are defined as the difference between maximum allowed processes and
-        currently running processes (clamped to a non-negative value). Uses a Redis pipeline to
-        fetch both values atomically, ensuring consistency between the two queries. Returns 0
-        if the max process key does not exist or an error occurs.
+        Calculate available process slots for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            The number of available process slots as a non-negative integer
+            Number of available process slots (max - running)
         """
         try:
             conn = self.get_connection()
@@ -491,13 +500,26 @@ class RedisWorkerClient:
                 return 0
 
             max_process_int = int(max_process.decode())
+
+            if max_process_int <= 0:
+                max_process_int = DEFAULT_MAX_PROCESS
+
             return max(max_process_int - run_count, 0)
 
         except Exception as e:
             self.logger.error(f"Error calculating available slots: {e}")
             return 0
 
-    def get_total_available_slots_by_server_name(self, server_name: str):
+    def get_total_available_slots_by_server_name(self, server_name: str) -> int:
+        """
+        Calculate total available slots across all workers of a service.
+
+        Args:
+            server_name: Name of the service
+
+        Returns:
+            Total available slots
+        """
         workers = self.scan_workers_by_service(service_name=server_name)
 
         total_available_slots = 0
@@ -508,16 +530,13 @@ class RedisWorkerClient:
 
     def get_worker_status(self, unique_id: str) -> Dict[str, Any]:
         """
-        Retrieve the core status metadata for a specific worker.
-        Fetches key metrics (max processes, running processes) and identifiers (worker name, service IP)
-        using a Redis pipeline for atomicity. Calculates available slots and packages all data into
-        a structured dictionary. Returns an empty dictionary if an error occurs.
+        Retrieve core status metadata for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            A dictionary containing the worker's core status information
+            Dictionary containing worker status information
         """
         try:
             conn = self.get_connection()
@@ -530,9 +549,17 @@ class RedisWorkerClient:
 
                 results = pipe.execute()
 
+            max_process_raw = results[0]
+            if max_process_raw is None:
+                max_process = DEFAULT_MAX_PROCESS
+            else:
+                max_process = int(max_process_raw.decode())
+                if max_process <= 0:
+                    max_process = DEFAULT_MAX_PROCESS
+
             status = {
                 'unique_id': unique_id,
-                'max_process': int(results[0].decode()) if results[0] else 0,
+                'max_process': max_process,
                 'run_process_count': results[1] or 0,
                 'available_slots': 0,
                 'worker_name': results[2].decode() if results[2] else None,
@@ -549,16 +576,13 @@ class RedisWorkerClient:
 
     def get_full_worker_data(self, unique_id: str) -> Optional[Dict[str, Any]]:
         """
-        Retrieve the complete metadata for a specific worker, including main data, max processes,
-        and running processes. Deserializes JSON-encoded fields (service_functions, worker_functions)
-        from the main hash key, combines data from dedicated keys, and returns a fully structured
-        dictionary. Returns None if the worker's main data key does not exist or an error occurs.
+        Retrieve complete metadata for a worker.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            A dictionary containing the complete worker metadata if available, None otherwise
+            Dictionary with complete worker metadata, or None if not found
         """
         try:
             conn = self.get_connection()
@@ -589,7 +613,12 @@ class RedisWorkerClient:
             worker_data['unique_id'] = unique_id
 
             if results[1]:
-                worker_data['worker_max_process'] = int(results[1].decode())
+                max_process = int(results[1].decode())
+                if max_process <= 0:
+                    max_process = DEFAULT_MAX_PROCESS
+                worker_data['worker_max_process'] = max_process
+            else:
+                worker_data['worker_max_process'] = DEFAULT_MAX_PROCESS
 
             run_process_list = []
             for member in results[2]:
@@ -608,16 +637,13 @@ class RedisWorkerClient:
 
     def delete_worker_data(self, unique_id: str) -> bool:
         """
-        Delete all metadata associated with a specific worker from Redis.
-        Removes the worker's main data key, max process key, and running process key using a pipeline.
-        Also removes the worker's unique ID from all service name index sets. Returns True if any
-        keys were deleted or modified, False otherwise.
+        Delete all metadata for a worker from Redis.
 
         Args:
-            unique_id: The unique identifier of the worker
+            unique_id: Unique identifier of the worker
 
         Returns:
-            Boolean indicating whether any worker data was successfully deleted
+            True if any data was deleted, False otherwise
         """
         try:
             conn = self.get_connection()
@@ -639,15 +665,13 @@ class RedisWorkerClient:
 
     def scan_workers_by_service(self, service_name: str) -> List[str]:
         """
-        Retrieve the list of worker unique IDs associated with a specific service name.
-        Fetches all members from the service name index set and decodes byte strings to UTF-8.
-        Returns an empty list if the index set does not exist or an error occurs.
+        Get list of worker unique IDs for a service.
 
         Args:
-            service_name: The name of the service to filter workers by
+            service_name: Name of the service
 
         Returns:
-            A list of worker unique IDs as strings
+            List of worker unique IDs
         """
         try:
             conn = self.get_connection()
@@ -661,16 +685,10 @@ class RedisWorkerClient:
 
     def get_all_service_names(self) -> List[str]:
         """
-        Retrieve the names of all registered services.
-
-        Uses Redis SCAN command to iteratively find all keys matching the pattern
-        "index:service_name:*", extracts the service name from each key, and returns
-        a list of unique service names. This method is efficient for large key spaces
-        as it uses cursor-based iteration without blocking the server.
+        Retrieve names of all registered services.
 
         Returns:
-            A list of service name strings. If an error occurs or no services are
-            found, an empty list is returned.
+            List of service name strings
         """
         try:
             conn = self.get_connection()
@@ -681,7 +699,6 @@ class RedisWorkerClient:
                 cursor, keys = conn.scan(cursor=cursor, match=pattern, count=100)
                 for key in keys:
                     key_str = key.decode()
-                    # Key format: index:service_name:<service_name>
                     service_name = key_str.split(':', 2)[-1]
                     service_names.append(service_name)
                 if cursor == 0:
@@ -693,24 +710,14 @@ class RedisWorkerClient:
 
     def refresh_service_expiry(self, server_name: str, expire_seconds: int = 86400) -> bool:
         """
-        Refresh the expiration time for all Redis keys associated with a specific service.
-
-        For the given service, this method renews the TTL (time-to-live) on:
-            - Each worker's main data key
-            - Each worker's max process key
-            - Each worker's running process key
-            - The service index key (used for service discovery)
-
-        The operation is performed atomically using a Redis pipeline to ensure
-        all keys are updated together efficiently.
+        Refresh expiration time for all Redis keys associated with a service.
 
         Args:
-            server_name: The name of the service whose keys should be refreshed.
-            expire_seconds: New expiration time in seconds (default is 86400 seconds = 24 hours).
+            server_name: Name of the service
+            expire_seconds: New expiration time in seconds (default: 86400)
 
         Returns:
-            True if all keys were successfully refreshed; False if no workers were
-            found for the service or if an error occurred during the operation.
+            True if all keys were refreshed, False otherwise
         """
         try:
             conn = self.get_connection()
@@ -720,7 +727,6 @@ class RedisWorkerClient:
                 return False
 
             with conn.pipeline(transaction=False) as pipe:
-                # Refresh each worker's keys
                 for unique_id in worker_ids:
                     main_key = self._get_worker_key(unique_id)
                     max_key = self._get_max_process_key(unique_id)
@@ -729,7 +735,6 @@ class RedisWorkerClient:
                     pipe.expire(max_key, expire_seconds)
                     pipe.expire(run_key, expire_seconds)
 
-                # Refresh the service index key
                 service_index_key = f"index:service_name:{server_name}"
                 pipe.expire(service_index_key, expire_seconds)
 
@@ -743,17 +748,14 @@ class RedisWorkerClient:
 @global_manager.register_fixture(name="fixture_redis_client", scope=Scope.GLOBAL)
 def _redis_client(fixture_config, fixture_logger):
     """
-    A global fixture function for creating and managing a RedisWorkerClient instance.
-    Retrieves Redis configuration from the global fixture config, initializes a logger for Redis operations,
-    and yields the RedisWorkerClient instance. The fixture follows the global scope lifecycle, meaning
-    a single instance is reused across the entire application context.
+    Global fixture for creating and managing a RedisWorkerClient instance.
 
     Args:
-        fixture_config: The global application configuration fixture containing Redis settings
-        fixture_logger: The global logging fixture for creating Redis-specific loggers
+        fixture_config: Global application configuration fixture
+        fixture_logger: Global logging fixture
 
     Yields:
-        An initialized instance of RedisWorkerClient
+        Initialized RedisWorkerClient instance
     """
     _redis_config = fixture_config[REDIS.CONFIG.KEY.value]
     _logger = fixture_logger.get_logger(PROJECT.NAME.value, REDIS.CONFIG.KEY.value)

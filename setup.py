@@ -5,7 +5,7 @@ with open("README.en.rst", "r", encoding="utf-8") as f:
 
 setup(
     name='astraflux',
-    version='1.3.5',
+    version='1.3.6',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,
@@ -35,6 +35,8 @@ setup(
         'gradio>=6.9.0',
         'openai>=2.28.0',
         'anthropic>=0.84.0',
-        'pytz'
+        'pytz',
+        'flask',
+        'flask_cors'
     ]
 )

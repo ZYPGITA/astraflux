@@ -5,23 +5,11 @@ import time
 import psutil
 import logging
 import subprocess
-import gradio as gr
 from pathlib import Path
 from typing import List, Callable
 
-from astraflux.ui.app import WebApp
-
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
-from astraflux.interface.executor import thread_executor
-
-
-def run_web_app(logger, config):
-    """
-    Run web app
-    """
-
-    WebApp(logger=logger, config=config[WEB.CONFIG.KEY.value]).web_launch()
 
 
 class LauncherManager:
@@ -165,11 +153,11 @@ class LauncherManager:
 
             # Launch service component (RPC server)
             service_pid = self._launch_service_component(service_launcher, service_class_path)
-            self.logger.info(f"Service started with PID: {service_pid}")
+            self.logger.debug(f"Service started with PID: {service_pid}")
 
             # Launch worker component (task processor)
             worker_pid = self._launch_service_component(worker_launcher, service_class_path)
-            self.logger.info(f"Worker started with PID: {worker_pid}")
+            self.logger.debug(f"Worker started with PID: {worker_pid}")
 
         if scheduled:
             # Import system-level workflow components
@@ -201,9 +189,10 @@ class LauncherManager:
             self.schedule.start_scheduler()
 
         if run_app:
-            t = thread_executor()
-            t.submit(func=run_web_app, logger=self.logger, config=self.config)
-            t.start()
+            from astraflux.ui import app
+            app_class_path = Path(app.__file__).resolve()
+            pid = self._launch_service_component(app, app_class_path)
+            self.logger.debug(f"Web APP started with PID: {pid}")
 
     def kill(self):
         """
@@ -254,7 +243,7 @@ class LauncherManager:
 def _launcher(fixture_config, fixture_logger, fixture_schedule):
     """Register LauncherManager fixture"""
     _config = fixture_config
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'launcher_manager')
 
     _launcher_manager = LauncherManager(
         config=_config,
