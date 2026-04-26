@@ -24,3 +24,19 @@ def send_message_to_openclaw(user_message: str, user_id='main', prompt=None):
         return fixture_openclaw.send_message_to_openclaw(user_message=user_message, user_id=user_id, prompt=prompt)
 
     return global_manager.bind_fixture_func(_backcall)()
+
+
+def astra_agent():
+    """
+    Retrieves the AstraAgent object. The agent provides two primary functions for AI interaction:
+    streaming dialogue and standard non-streaming responses.
+
+    Available methods:
+        - stream_chat(message:str, prompt:str=None): Handles real-time streaming interactions.
+        - chat(message:str, prompt:str=None): Handles standard, non-streaming request-response cycles.
+    """
+
+    def _backcall(fixture_astra_agent):
+        return fixture_astra_agent
+
+    return global_manager.bind_fixture_func(_backcall)()

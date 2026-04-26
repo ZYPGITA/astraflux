@@ -52,7 +52,8 @@ __all__ = [
     'thread_executor',
     'process_executor',
     'config_obj',
-    'send_message_to_openclaw'
+    'send_message_to_openclaw',
+    'astra_agent'
 ]
 
 

@@ -39,4 +39,4 @@ from .mongodb import (
 from .scheduler import start_scheduler, stop_scheduler, add_scheduled_job, remove_scheduled_job
 from .launcher import launch_register, launch_start
 from .executor import thread_executor, process_executor
-from .openclaw import send_message_to_openclaw
+from .astra_agents import send_message_to_openclaw, astra_agent

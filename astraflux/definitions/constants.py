@@ -204,24 +204,46 @@ class WEB:
         BIND_IP = '0.0.0.0'
 
 
-class OpenClaw:
+class OpenAI:
     @unique
     class CONFIG(Enum):
-        KEY = 'openclaw'
-
-        SERVER = 'server'
-        TOKEN = 'token'
-        SESSION_KEY = 'session_key'
+        KEY = 'openai'
         TEMPORARY_DIRECTORY = 'temporary_directory'
         EXPAND_SKILL_DIRECTORY = 'expand_skill_directory'
 
     class DEFAULT(Enum):
-        SERVER = 'http://127.0.0.1:18789'
-
-        TOKEN = 'None'
-        SESSION_KEY = 'x-session'
         TEMPORARY_DIRECTORY = 'temporary_directory'
         EXPAND_SKILL_DIRECTORY = 'expand_skill_directory'
+
+    class OpenClaw:
+        @unique
+        class CONFIG(Enum):
+            KEY = 'openclaw'
+            SERVER = 'server'
+            TOKEN = 'token'
+            SESSION_KEY = 'session_key'
+
+        @unique
+        class DEFAULT(Enum):
+            SERVER = 'http://127.0.0.1:18789'
+            TOKEN = 'None'
+            SESSION_KEY = 'x-session'
+            TEMPORARY_DIRECTORY = 'temporary_directory'
+            EXPAND_SKILL_DIRECTORY = 'expand_skill_directory'
+
+    class ModelAPI:
+        @unique
+        class CONFIG(Enum):
+            KEY = 'modelApi'
+            NAME = 'name'
+            SERVER = 'server'
+            APIKEY = 'apiKey'
+
+        @unique
+        class DEFAULT(Enum):
+            NAME = 'x'
+            SERVER = 'http://192.168.208.1:1234'
+            APIKEY = 'sk-x'
 
 
 CONFIGS = [

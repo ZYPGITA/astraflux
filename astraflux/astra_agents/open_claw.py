@@ -13,15 +13,15 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 
 class OpenClawChat:
     """
-    OpenClaw Chat Client
+    OpenAI.OpenClaw Chat Client
 
-    Manages communication with the OpenClaw AI server, handles system prompts,
+    Manages communication with the OpenAI.OpenClaw AI server, handles system prompts,
     skill learning tasks, and streaming chat interactions.
     """
 
     def __init__(self, logger, config):
         """
-        Initialize the OpenClaw chat client.
+        Initialize the OpenAI.OpenClaw chat client.
 
         Args:
             logger: Logger instance for recording events and errors.
@@ -32,19 +32,20 @@ class OpenClawChat:
 
         # Directory for temporary files (writable area)
         self.temporary_directory = config.get(
-            OpenClaw.CONFIG.TEMPORARY_DIRECTORY.value, OpenClaw.DEFAULT.TEMPORARY_DIRECTORY.value)
+            OpenAI.CONFIG.TEMPORARY_DIRECTORY.value, OpenAI.DEFAULT.TEMPORARY_DIRECTORY.value)
 
         # Directory for expandable skills (read-only)
         self.expand_skill_directory = config.get(
-            OpenClaw.CONFIG.EXPAND_SKILL_DIRECTORY.value, OpenClaw.DEFAULT.EXPAND_SKILL_DIRECTORY.value)
+            OpenAI.CONFIG.EXPAND_SKILL_DIRECTORY.value, OpenAI.DEFAULT.EXPAND_SKILL_DIRECTORY.value)
 
-        # OpenClaw server URL
-        self.server = config.get(OpenClaw.CONFIG.SERVER.value, OpenClaw.DEFAULT.SERVER.value)
+        # OpenAI.OpenClaw server URL
+        self.server = config.get(OpenAI.OpenClaw.CONFIG.SERVER.value, OpenAI.OpenClaw.DEFAULT.SERVER.value)
 
         # Authentication token
-        self.token = config.get(OpenClaw.CONFIG.TOKEN.value, OpenClaw.DEFAULT.TOKEN.value)
+        self.token = config.get(OpenAI.OpenClaw.CONFIG.TOKEN.value, OpenAI.OpenClaw.DEFAULT.TOKEN.value)
         # Session key for the conversation
-        self.session_key = config.get(OpenClaw.CONFIG.SESSION_KEY.value, OpenClaw.DEFAULT.SESSION_KEY.value)
+        self.session_key = config.get(OpenAI.OpenClaw.CONFIG.SESSION_KEY.value,
+                                      OpenAI.OpenClaw.DEFAULT.SESSION_KEY.value)
 
         current_dir = get_current_dir()
         self.logger.info(f'current_dir == {current_dir}')
@@ -67,7 +68,7 @@ class OpenClawChat:
             'x-openclaw-session-key': self.session_key
         }
 
-        # OpenClaw chat completion endpoint
+        # OpenAI.OpenClaw chat completion endpoint
         self.baseurl = f'{self.server}/v1/chat/completions'
 
         # Initialize the AI by sending the system learning tasks
@@ -193,7 +194,7 @@ class OpenClawChat:
 
     def send_message_to_openclaw(self, user_message: str, user_id='main', prompt=None):
         """
-        Send a user message to OpenClaw and return a streaming response.
+        Send a user message to OpenAI.OpenClaw and return a streaming response.
 
         The method constructs a prompt (or uses a provided one) that instructs
         the AI to analyze intent, decide on tool usage, handle missing parameters,
