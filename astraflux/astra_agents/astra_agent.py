@@ -2,9 +2,8 @@
 
 import os
 import json
-import asyncio
 from openai import AsyncOpenAI
-from agents import Agent, Runner, OpenAIChatCompletionsModel
+from agents import Agent, Runner, OpenAIChatCompletionsModel, function_tool
 
 from astraflux.definitions.constants import *
 from astraflux.definitions.globals import get_current_dir
@@ -51,11 +50,12 @@ class AstraAgent:
         self.agent = None
         self.tools = []
 
-        self.register_tool()
+        self.register_system_tools()
         self.register_agent()
 
-    def register_tool(self):
-        pass
+    def register_system_tools(self):
+        for f in os.listdir(self.system_skill_path):
+            print(f)
 
     def register_agent(self):
         client = AsyncOpenAI(
@@ -76,9 +76,12 @@ class AstraAgent:
         )
 
 
-def stream_chat(self, message, prompt=None):
-    print(message)
+class AstraAgentApi(AstraAgent):
+
+    async def stream_chat(self, message, prompt=None):
+        print(message)
+        # result_1 = await Runner.run(self.agent, message)
 
 
-def chat(self, message, prompt=None):
-    pass
+    async def chat(self, message, prompt=None):
+        pass

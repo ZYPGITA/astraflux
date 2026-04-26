@@ -4,7 +4,7 @@ from astraflux.definitions.constants import *
 
 from astraflux.core import global_manager
 from astraflux.astra_agents.open_claw import OpenClawChat
-from astraflux.astra_agents.astra_agent import AstraAgent
+from astraflux.astra_agents.astra_agent import AstraAgentApi
 
 
 @global_manager.register_fixture(name="fixture_openclaw", scope=Scope.GLOBAL)
@@ -50,7 +50,7 @@ def _astra_agent(fixture_config, fixture_logger):
     _agent_config = _openai_config[OpenAI.ModelAPI.CONFIG.KEY.value]
     _logger = fixture_logger.get_logger(PROJECT.NAME.value, OpenAI.ModelAPI.CONFIG.KEY.value)
 
-    _agent_producer = AstraAgent(
+    _agent_producer = AstraAgentApi(
         config=_agent_config,
         logger=_logger,
     )
