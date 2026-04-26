@@ -37,5 +37,5 @@ openai:
 
   modelApi:
     server: http://192.168.208.1:1234/v1
-    name: deepseek/deepseek-r1-0528-qwen3-8b
+    name: qwen/qwen3.5-9b
     apiKey: sk-lm-eMrfKTYy:bB4kywtBdPBwOMbMjs6r
