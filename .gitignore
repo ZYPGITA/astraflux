@@ -143,3 +143,4 @@ logs
 temporary_directory
 
 ztest.py
+ztest_config.yaml

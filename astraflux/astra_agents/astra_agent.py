@@ -111,9 +111,12 @@ class AstraAgent:
             base_url=self.server
         )
 
+        from agents.models.reasoning_content_replay import default_should_replay_reasoning_content
+
         model = OpenAIChatCompletionsModel(
             model=self.model_name,
-            openai_client=client
+            openai_client=client,
+            should_replay_reasoning_content=default_should_replay_reasoning_content,
         )
 
         instructions = """You are Astra AI Agent. You can connect to the internet to search for \
@@ -129,7 +132,6 @@ class AstraAgent:
 
 
 class AstraAgentApi(AstraAgent):
-
     _initialize_ai_state = False
 
     async def initialize_ai(self):
@@ -194,17 +196,16 @@ class AstraAgentApi(AstraAgent):
         5. Minimize token usage without affecting the task results.
         """
         if not self._initialize_ai_state:
-            result = await Runner.run(self.agent, system_prompt)
-            print(result.final_output)
-            print(result.new_items)
-            print(type(result))
-            print(result)
+            result = await Runner.run(self.agent, system_prompt, max_turns=100)
+            self._initialize_ai_state = True
+            return result
+        return True
 
-    async def stream_chat(self, user_message, user_id='main', prompt=None):
+    async def stream_chat(self, message, backcall, user_id='main', prompt=None):
         if prompt is None:
             prompt = f"""
             User ID: {user_id}
-            User Input: {user_message}
+            User Input: {message}
 
             Please follow these rules:
             1. Analyze the user's intention.
@@ -235,8 +236,56 @@ class AstraAgentApi(AstraAgent):
             """
 
         await self.initialize_ai()
-        # result = await Runner.run(self.agent, prompt)
-        # print(result)
+        result = Runner.run_streamed(self.agent, prompt, max_turns=100)
 
-    async def chat(self, message, prompt=None):
-        pass
+        async for event in result.stream_events():
+
+            if event.type == "raw_response_event":
+                if hasattr(event.data, 'delta') and event.data.delta:
+                    text_chunk = event.data.delta
+                    backcall(text_chunk)
+
+            elif event.type == "run_item_stream_event":
+                if event.item.type == "message_output_item":
+                    from agents import ItemHelpers
+                    full_text = ItemHelpers.text_message_output(event.item)
+                    if full_text:
+                        backcall(full_text)
+
+    async def chat(self, message, backcall, user_id='main', prompt=None):
+        if prompt is None:
+            prompt = f"""
+            User ID: {user_id}
+            User Input: {message}
+
+            Please follow these rules:
+            1. Analyze the user's intention.
+            2. Determine whether a tool needs to be called (prioritize local tools).
+            3. If a tool is needed but required parameters are missing, mark status as "need_info" 
+                and list the missing parameters in missing_params.
+            4. Wait until all steps are completed before generating the final response.
+
+            Final response JSON example:
+            {{
+                "status": "success",  // success / error / need_info
+                "intention": "Brief description of user intent",
+                "need_tool": false,   // true or false
+                "response": "",       // Natural language response to the user, must be in Markdown format
+                "tool_name": "",      // Tool name if needed, otherwise empty string
+                "params": [],         // Tool call parameters, format [{{"name": "", "value": ""}}]
+                "missing_params": [], // List of missing parameters, format [{{"name": "", "description": ""}}]
+                "extend_info": [],    // Extended information array
+                "error": ""           // Error message, empty if no error
+            }}
+
+            Note:
+            - You must output the **thinking process** first, then output the **final response**.
+            - All fields must be present, even if they are empty strings or empty arrays.
+            - The response field must be friendly, clear, and appropriate for the current status 
+                (e.g., when status is "need_info", prompt the user to provide missing parameters).
+            - If status is "error", fill in the error field with the reason.
+            """
+
+        await self.initialize_ai()
+        result = await Runner.run(self.agent, prompt, max_turns=100)
+        backcall(result.final_output)
