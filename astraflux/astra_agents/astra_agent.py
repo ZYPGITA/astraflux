@@ -272,7 +272,9 @@ class AstraNativeAgent:
         for tool_call in tool_calls:
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
-            self.logger.info(f"Calling tool: {tool_name}, args: {arguments}")
+
+            self.logger.debug(f"Calling tool: {tool_name}, args: {arguments}")
+
             result = await self._execute_tool(tool_name, arguments)
             tool_results.append({
                 "role": "tool",
@@ -314,9 +316,96 @@ class AstraAgentApi(AstraNativeAgent):
     or request/response formatting.
     """
 
-    __initialize_ai_state = False
+    _initialize_ai_state = {}
 
-    async def initialize_ai(self):
+    async def _run_llm_loop(self, initial_messages: list, conversation_history: list,
+                            agent_system_prompt: str | None, max_iterations: int,
+                            temperature: float, backcall: Callable = None) -> str:
+        """
+        Core LLM conversation loop with automatic tool handling.
+
+        Args:
+            initial_messages: Messages to send in the first API call.
+            conversation_history: Reference to the conversation history list (will be updated).
+            agent_system_prompt: System prompt for the agent (may be None).
+            max_iterations: Maximum number of iterations (tool calls + responses).
+            temperature: Sampling temperature.
+            backcall: Optional callback for streaming/final response.
+
+        Returns:
+            Final assistant response text.
+        """
+        current_messages = initial_messages
+
+        for _ in range(max_iterations):
+            # Make API call
+            response = await self.client.chat.completions.create(
+                model=self.model_name,
+                messages=current_messages,
+                tools=self.tools_schema if self.tools_schema else None,
+                tool_choice="auto" if self.tools_schema else None,
+                temperature=temperature,
+                extra_body=None
+            )
+
+            assistant_message = response.choices[0].message
+            response_text = assistant_message.content or ""
+
+            # Extract reasoning_content if present (for models that support thinking)
+            reasoning = getattr(assistant_message, 'reasoning_content', None) or (
+                getattr(assistant_message, 'additional_kwargs', {}).get('reasoning_content')
+            )
+
+            # Handle tool calls
+            if assistant_message.tool_calls:
+                # Build assistant entry with tool calls
+                assistant_entry = {
+                    "role": "assistant",
+                    "content": response_text,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in assistant_message.tool_calls
+                    ]
+                }
+                if reasoning:
+                    assistant_entry["reasoning_content"] = reasoning
+
+                conversation_history.append(assistant_entry)
+
+                # Execute tool calls and get results
+                tool_results = await self._handle_tool_calls(assistant_message.tool_calls)
+                conversation_history.extend(tool_results)
+
+                # Rebuild messages for next iteration: system prompt (if any) + full history
+                current_messages = []
+                if agent_system_prompt:
+                    current_messages.append({"role": "system", "content": agent_system_prompt})
+                current_messages.extend(conversation_history)
+                continue
+
+            # No tool calls – final response
+            if response_text:
+                assistant_entry = {"role": "assistant", "content": response_text}
+                if reasoning:
+                    assistant_entry["reasoning_content"] = reasoning
+                conversation_history.append(assistant_entry)
+
+                if backcall:
+                    backcall(response_text)
+                return response_text
+            else:
+                return ""
+
+        return "Max iterations reached without final response"
+
+    async def initialize_ai(self, user_id, max_iterations):
         """
         Initialize the AI by teaching it the system skills.
 
@@ -325,7 +414,6 @@ class AstraAgentApi(AstraNativeAgent):
         The AI is expected to process these tasks and store learning results
         in the authorized writable directory.
         """
-
         system_prompt = f"""
         You are an intelligent assistant capable of calling local/external tools, performing web searches, 
             and reading/writing files. You must strictly follow the rules below.
@@ -378,6 +466,19 @@ class AstraAgentApi(AstraNativeAgent):
         5. Minimize token usage without affecting the task results.
         """
 
+        user_msg = {"role": "user", "content": system_prompt}
+        conv_history = self.conversation_history.setdefault(user_id, [])
+        conv_history.append(user_msg)
+
+        return await self._run_llm_loop(
+            initial_messages=[user_msg],
+            conversation_history=conv_history,
+            agent_system_prompt=self.system_prompt,
+            max_iterations=max_iterations,
+            temperature=1.0,
+            backcall=None
+        )
+
     @staticmethod
     def prompt(prompt: str, user_id: str, message: str) -> str:
         if prompt is None:
@@ -412,11 +513,11 @@ class AstraAgentApi(AstraNativeAgent):
                 (e.g., when status is "need_info", prompt the user to provide missing parameters).
             - If status is "error", fill in the error field with the reason.
             """
-
         return prompt
 
     async def chat(self, message: str, backcall: Callable = None,
-                   user_id: str = 'main', temperature: float = 1.0, prompt: str = None) -> str:
+                   user_id: str = 'main', temperature: float = 1.0,
+                   prompt: str = None, max_iterations: int = 10) -> str:
         """
         Send a message to the agent and get a response with automatic tool handling.
 
@@ -431,107 +532,31 @@ class AstraAgentApi(AstraNativeAgent):
             user_id: User identifier for session management (reserved for future use)
             temperature: Sampling temperature (0.0 to 2.0, higher = more creative)
             prompt: prompt
+            max_iterations: max iterations
 
         Returns:
             The assistant's final response text
         """
         _prompt = self.prompt(prompt, user_id, message)
 
-        # Build message list with system prompt and conversation history
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            *self.conversation_history,
-            {"role": "user", "content": _prompt}
-        ]
+        # Initialize AI if first time for this user
+        if user_id not in self._initialize_ai_state:
+            await self.initialize_ai(user_id=user_id, max_iterations=max_iterations)
+            self._initialize_ai_state[user_id] = True
 
-        if user_id not in self.conversation_history:
-            self.conversation_history[user_id] = []
+        # Prepare conversation history
+        conv_history = self.conversation_history.setdefault(user_id, [])
+        # Add the user message (actual prompt sent to model) to history
+        conv_history.append({"role": "user", "content": _prompt})
 
-        conversation_history = self.conversation_history[user_id]
+        # Build initial messages for the first API call
+        initial_messages = [{"role": "system", "content": self.system_prompt}] + conv_history
 
-        # Add user message to conversation history
-        conversation_history.append({"role": "user", "content": message})
-
-        max_iterations = 10
-
-        for iteration in range(max_iterations):
-            extra_body = {}
-
-            # Make API call with current message state
-            response = await self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                tools=self.tools_schema if self.tools_schema else None,
-                tool_choice="auto" if self.tools_schema else None,
-                temperature=temperature,
-                extra_body=extra_body if extra_body else None
-            )
-
-            assistant_message = response.choices[0].message
-
-            response_text = assistant_message.content or ""
-
-            # Extract reasoning_content if present (for models that support thinking)
-            reasoning = getattr(assistant_message, 'reasoning_content', None) or (
-                getattr(assistant_message, 'additional_kwargs', {}).get('reasoning_content'))
-
-            # Handle tool calls if present
-            if assistant_message.tool_calls:
-                # Build assistant message entry with tool calls
-                assistant_entry = {
-                    "role": "assistant",
-                    "content": response_text,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        }
-                        for tc in assistant_message.tool_calls
-                    ]
-                }
-
-                # Preserve reasoning_content if it exists
-                if reasoning:
-                    assistant_entry["reasoning_content"] = reasoning
-
-                # Add assistant message to history
-                conversation_history.append(assistant_entry)
-
-                # Execute all tool calls
-                tool_results = await self._handle_tool_calls(assistant_message.tool_calls)
-
-                # Rebuild messages including tool results for next iteration
-                messages = [
-                    {"role": "system", "content": self.system_prompt},
-                    *self.conversation_history,
-                    *tool_results
-                ]
-
-                # Add tool results to conversation history
-                conversation_history.extend(tool_results)
-                continue  # Continue loop to allow assistant to process tool results
-
-            # No tool calls - return the final response
-            if response_text:
-                assistant_entry = {"role": "assistant", "content": response_text}
-
-                # Preserve reasoning_content if it exists
-                if reasoning:
-                    assistant_entry["reasoning_content"] = reasoning
-
-                # Add assistant response to history
-                conversation_history.append(assistant_entry)
-
-                # Call backcall if provided
-                if backcall:
-                    backcall(response_text)
-                return response_text
-            else:
-                # Empty response - return empty string
-                return ""
-
-        return "Max iterations reached without final response"
+        return await self._run_llm_loop(
+            initial_messages=initial_messages,
+            conversation_history=conv_history,
+            agent_system_prompt=self.system_prompt,
+            max_iterations=max_iterations,
+            temperature=temperature,
+            backcall=backcall
+        )
