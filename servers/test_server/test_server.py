@@ -32,5 +32,5 @@ class WorkerFunction(WorkerConstructor):
         o.submit(func=aa, x=2222)
         o.start()
 
-        time.sleep(5)
+        time.sleep(15)
         self.logger.info(f"worker done {data['task_id']}")

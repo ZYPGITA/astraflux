@@ -28,7 +28,7 @@ class TaskScheduler:
 
     def __init__(self):
         """Initialize the TaskScheduler with a logger and final status set."""
-        self.logger = logger(dirname=PROJECT.NAME.value, filename='TaskScheduler')
+        self.logger = logger(dirname=PROJECT.NAME.value, filename='task_scheduler')
 
         # Define terminal states for tasks (tasks that have completed execution)
         self.FINAL_STATUS = {STATUS.SUCCESS.value, STATUS.FAILED.value, STATUS.STOPPED.value}

@@ -10,15 +10,6 @@ from typing import List, Callable
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
-from astraflux.interface.executor import thread_executor
-
-
-def run_web_app(logger, config):
-    """
-    Run web app
-    """
-    from astraflux.ui.app import WebApp
-    WebApp(logger=logger, config=config).web_launch()
 
 
 class LauncherManager:
@@ -123,7 +114,7 @@ class LauncherManager:
         """
         self.services.extend(services)
 
-    def launch_start(self, run_app: bool = True):
+    def launch_start(self, run_app: bool = True, scheduled: bool = True):
         """
         Initialize and launch all registered services with their associated worker components.
 
@@ -162,44 +153,46 @@ class LauncherManager:
 
             # Launch service component (RPC server)
             service_pid = self._launch_service_component(service_launcher, service_class_path)
-            self.logger.info(f"Service started with PID: {service_pid}")
+            self.logger.debug(f"Service started with PID: {service_pid}")
 
             # Launch worker component (task processor)
             worker_pid = self._launch_service_component(worker_launcher, service_class_path)
-            self.logger.info(f"Worker started with PID: {worker_pid}")
+            self.logger.debug(f"Worker started with PID: {worker_pid}")
 
-        # Import system-level workflow components
-        from astraflux.workflows.task_distribution import TaskScheduler
-        from astraflux.workflows.monitoring import SystemMonitoring
+        if scheduled:
+            # Import system-level workflow components
+            from astraflux.workflows.task_distribution import TaskScheduler
+            from astraflux.workflows.monitoring import SystemMonitoring
 
-        # Configure and schedule the TaskScheduler job
-        # This job runs every 10 seconds and is responsible for distributing tasks
-        # across available workers in a distributed environment
-        self.schedule.add_scheduled_job(
-            job_id='TaskScheduler',
-            cron_expression='*/10 * * * * *',  # Every 10 seconds
-            execution_type='thread',  # Execute in a separate thread
-            function=TaskScheduler().execute,  # Function to execute
-            execution_mode='distributed_unique'  # Ensure only one instance runs in the cluster
-        )
+            # Configure and schedule the TaskScheduler job
+            # This job runs every 10 seconds and is responsible for distributing tasks
+            # across available workers in a distributed environment
+            self.schedule.add_scheduled_job(
+                job_id='TaskScheduler',
+                cron_expression='*/10 * * * * *',  # Every 10 seconds
+                execution_type='thread',  # Execute in a separate thread
+                function=TaskScheduler().execute,  # Function to execute
+                execution_mode='distributed_unique'  # Ensure only one instance runs in the cluster
+            )
 
-        # Configure and schedule the SystemMonitoring job
-        # This job runs every 30 seconds and monitors system health and performance
-        self.schedule.add_scheduled_job(
-            job_id='SystemMonitoring',
-            cron_expression='*/30 * * * * *',  # Every 30 seconds
-            execution_type='thread',  # Execute in a separate thread
-            function=SystemMonitoring().run,  # Function to execute
-            execution_mode='ip_unique'  # Ensure one instance per IP address
-        )
+            # Configure and schedule the SystemMonitoring job
+            # This job runs every 30 seconds and monitors system health and performance
+            self.schedule.add_scheduled_job(
+                job_id='SystemMonitoring',
+                cron_expression='*/30 * * * * *',  # Every 30 seconds
+                execution_type='thread',  # Execute in a separate thread
+                function=SystemMonitoring().run,  # Function to execute
+                execution_mode='ip_unique'  # Ensure one instance per IP address
+            )
 
-        # Start the scheduler to begin executing scheduled jobs
-        self.schedule.start_scheduler()
+            # Start the scheduler to begin executing scheduled jobs
+            self.schedule.start_scheduler()
 
         if run_app:
-            p = thread_executor()
-            p.submit(func=run_web_app, logger=self.logger, config=self.config)
-            p.start()
+            from astraflux.ui import app
+            app_class_path = Path(app.__file__).resolve()
+            pid = self._launch_service_component(app, app_class_path)
+            self.logger.debug(f"Web APP started with PID: {pid}")
 
     def kill(self):
         """
@@ -250,7 +243,7 @@ class LauncherManager:
 def _launcher(fixture_config, fixture_logger, fixture_schedule):
     """Register LauncherManager fixture"""
     _config = fixture_config
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'launcher_manager')
 
     _launcher_manager = LauncherManager(
         config=_config,

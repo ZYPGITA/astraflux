@@ -1,11 +1,10 @@
 # -*- encoding: utf-8 -*-
 
-
-import pytz
 import socket
 import base64
 import hashlib
 import datetime
+from zoneinfo import ZoneInfo
 
 from astraflux.core import global_manager
 from astraflux.definitions.constants import *
@@ -45,9 +44,9 @@ class TimeProcessor:
         Returns:
             datetime.datetime: A datetime object representing the converted time.
         """
-        target_timezone = pytz.timezone(self.timezone)
+        target_timezone = ZoneInfo(self.timezone)
         current_time = datetime.datetime.strptime(data_str, self.fmt)
-        converted_time = current_time.astimezone(target_timezone)
+        converted_time = current_time.replace(tzinfo=target_timezone)
         return converted_time
 
     def format_converted_time(self, data_str: str, r_fmt=False):
@@ -65,8 +64,8 @@ class TimeProcessor:
             r_fmt = self.fmt
 
         current_time = datetime.datetime.strptime(data_str, self.fmt)
-        target_timezone = pytz.timezone(self.timezone)
-        converted_time = current_time.astimezone(target_timezone)
+        target_timezone = ZoneInfo(self.timezone)
+        converted_time = current_time.replace(tzinfo=target_timezone)
 
         return converted_time.strftime(r_fmt)
 
@@ -78,9 +77,8 @@ class TimeProcessor:
             str: A string representing the current time in the specified format and timezone.
         """
 
-        current_time = datetime.datetime.now()
-        target_timezone = pytz.timezone(self.timezone)
-        converted_time = current_time.astimezone(target_timezone)
+        target_timezone = ZoneInfo(self.timezone)
+        converted_time = datetime.datetime.now(target_timezone)
 
         return converted_time.strftime(self.fmt)
 
@@ -103,9 +101,17 @@ def _ipaddr():
     Returns:
         str: The IP address of the current machine.
     """
-    socket_tools = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_tools.connect((SOCKET.DEFAULT.BIND_IP.value, SOCKET.DEFAULT.BIND_PORT.value))
-    return socket_tools.getsockname()[0]
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((SOCKET.DEFAULT.BIND_IP.value, SOCKET.DEFAULT.BIND_PORT.value))
+        ip = s.getsockname()[0]
+    except socket.error:
+        hostname = socket.gethostname()
+        ip = socket.gethostbyname(hostname)
+    finally:
+        s.close()
+    return ip
 
 
 @global_manager.register_fixture(name="fixture_devices_id", scope=Scope.GLOBAL)

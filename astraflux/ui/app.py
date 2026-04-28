@@ -1,137 +1,695 @@
 # -*- coding: utf-8 -*-
 
-import gradio as gr
-from astraflux.definitions.constants import *
+import os
+import sys
+import argparse
+from datetime import datetime
+from flask_cors import CORS
+from flask import Flask, request, jsonify, session, send_from_directory, redirect, abort
 
-from astraflux.ui.components.common import COMMON_CSS, create_side_nav_menu
-from astraflux.ui.pages.service_manage import create_service_manage_page
-from astraflux.ui.pages.task_manage import create_task_manage_page
-from astraflux.ui.pages.ai_tool import create_ai_tool_page
+from astraflux import AstraFlux
+from astraflux.definitions.constants import *
+from astraflux.interface.logger import logger
+from astraflux.interface.other import config_obj
 
 
 class WebApp:
+    """Flask Web Application - AstraFlux Management Interface"""
 
-    def __init__(self, logger, config):
-        self.logger = logger
+    def __init__(self, config: dict):
         self.config = config
+        self.logger = logger(dirname=PROJECT.NAME.value, filename=WEB.CONFIG.KEY.value)
 
-        self.prot = config.get(WEB.CONFIG.PROT.value, WEB.DEFAULT.PROT.value)
-        self.server_name = config.get(WEB.CONFIG.SERVER_NAME.value, WEB.DEFAULT.SERVER_NAME.value)
+        self.port = config.get(WEB.CONFIG.PORT.value, WEB.DEFAULT.PORT.value)
+        self.bind_ip = config.get(WEB.CONFIG.BIND_IP.value, WEB.DEFAULT.BIND_IP.value)
         self.username = config.get(WEB.CONFIG.USERNAME.value, WEB.DEFAULT.USERNAME.value)
         self.password = config.get(WEB.CONFIG.PASSWORD.value, WEB.DEFAULT.PASSWORD.value)
 
-    def check_login(self, username, password):
-        """Verify username and password, return login status"""
+        self.app = Flask(__name__, template_folder='views')
+        self.app.secret_key = 'astraflux_web_secret_key_2024'
+        self.route_prefix = '/api'
+
+        self.views_dir = os.path.join(os.path.dirname(__file__), 'views')
+
+        CORS(self.app, supports_credentials=True)
+
+    def route_registration(self):
+        """Register all routes including page routes and API routes"""
+        self.app.add_url_rule('/', 'index', self.index, methods=['GET'])
+        self.app.add_url_rule('/favicon.ico', 'favicon', self.favicon, methods=['GET'])
+        self.app.add_url_rule('/views/<path:filename>', 'serve_views', self.serve_views, methods=['GET'])
+
+        self.app.add_url_rule(f'{self.route_prefix}/login', 'login', self.login, methods=['POST'])
+        self.app.add_url_rule(f'{self.route_prefix}/logout', 'logout', self.logout, methods=['POST'])
+        self.app.add_url_rule(f'{self.route_prefix}/check-auth', 'check_auth', self.check_auth, methods=['GET'])
+
+        self.app.add_url_rule(f'{self.route_prefix}/server/list', 'query_server_list',
+                              self.query_server_list, methods=['GET'])
+        self.app.add_url_rule(f'{self.route_prefix}/server/stats', 'server_stats',
+                              self.server_stats, methods=['GET'])
+        self.app.add_url_rule(f'{self.route_prefix}/server/max_process', 'update_max_process',
+                              self.update_max_process, methods=['POST'])
+
+        self.app.add_url_rule(f'{self.route_prefix}/task/list', 'query_task_list',
+                              self.query_task_list, methods=['GET'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/stats', 'task_stats',
+                              self.task_stats, methods=['GET'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/queues', 'task_queues',
+                              self.task_queues, methods=['GET'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/retry', 'retry_task',
+                              self.retry_task, methods=['POST'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/terminate', 'forced_termination_task',
+                              self.forced_termination_task, methods=['POST'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/kill', 'kill_task_process',
+                              self.kill_task_process, methods=['POST'])
+        self.app.add_url_rule(f'{self.route_prefix}/task/detail/<task_id>', 'task_detail',
+                              self.task_detail, methods=['GET'])
+
+        self.app.register_error_handler(404, self.not_found)
+        self.app.register_error_handler(500, self.server_error)
+
+    @staticmethod
+    def favicon():
+        """Return simple SVG favicon"""
+        return '''data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <rect width="100" height="100" rx="20" fill="%237c6ef0"/>
+            <text x="50" y="65" font-size="50" text-anchor="middle" fill="white">⚡</text>
+        </svg>''', 200, {'Content-Type': 'image/svg+xml'}
+
+    @staticmethod
+    def not_found(error):
+        """Handle 404 error"""
+        return jsonify({
+            'status': 'error',
+            'message': 'Resource not found',
+            'code': 404
+        }), 404
+
+    def server_error(self, error):
+        """Handle 500 error"""
+        self.logger.error(f"Server error: {error}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error',
+            'code': 500
+        }), 500
+
+    def serve_views(self, filename):
+        """Serve static HTML files from views directory"""
+        try:
+            return send_from_directory(self.views_dir, filename)
+        except FileNotFoundError:
+            abort(404)
+
+    @staticmethod
+    def index():
+        """Home page, redirect to server management or login page"""
+        if session.get('logged_in'):
+            return redirect('/views/server.html')
+        return redirect('/views/login.html')
+
+    @staticmethod
+    def check_auth():
+        """Check login status"""
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'logged_in': session.get('logged_in', False),
+                'username': session.get('username', '')
+            }
+        })
+
+    def login(self):
+        """User login"""
+        data = request.get_json() or {}
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+
+        if not username or not password:
+            return jsonify({
+                'status': 'error',
+                'message': 'Username and password cannot be empty'
+            }), 400
+
         if username == self.username and password == self.password:
-            return gr.update(visible=False), gr.update(visible=True), "Login successful! Redirecting to homepage..."
-        else:
-            return gr.update(visible=True), gr.update(visible=False), "Incorrect username or password, please try again"
+            session['logged_in'] = True
+            session['username'] = username
+            session.permanent = True
+            self.logger.info(f"User '{username}' logged in successfully from {request.remote_addr}")
+            return jsonify({
+                'status': 'success',
+                'message': 'Login successful',
+                'data': {'username': username}
+            })
 
-    @staticmethod
-    def show_service_page():
-        """Show Service Management page and activate corresponding button"""
-        return (
-            gr.update(visible=True),  # Service Management page
-            gr.update(visible=False),  # Task Management page
-            gr.update(visible=False),  # AI Tools page
-            gr.update(variant="primary"),  # Activate Service button
-            gr.update(variant="secondary"),  # Deactivate Task button
-            gr.update(variant="secondary")  # Deactivate AI button
+        self.logger.warning(f"Login failed for user '{username}' from {request.remote_addr}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid username or password'
+        }), 401
+
+    def logout(self):
+        """User logout"""
+        username = session.get('username', 'unknown')
+        session.clear()
+        self.logger.info(f"User '{username}' logged out")
+        return jsonify({
+            'status': 'success',
+            'message': 'Logged out successfully'
+        })
+
+    def query_server_list(self):
+        """Get server list with worker information"""
+        from astraflux.interface import (
+            get_all_service_names, redis_scan_workers_by_service,
+            redis_get_full_worker_data
         )
 
-    @staticmethod
-    def show_task_page():
-        """Show Task Management page and activate corresponding button"""
-        return (
-            gr.update(visible=False),  # Service Management page
-            gr.update(visible=True),  # Task Management page
-            gr.update(visible=False),  # AI Tools page
-            gr.update(variant="secondary"),  # Deactivate Service button
-            gr.update(variant="primary"),  # Activate Task button
-            gr.update(variant="secondary")  # Deactivate AI button
-        )
+        try:
+            service_names = get_all_service_names()
+            server_list = []
 
-    @staticmethod
-    def show_ai_page():
-        """Show AI Tools page and activate corresponding button"""
-        return (
-            gr.update(visible=False),  # Service Management page
-            gr.update(visible=False),  # Task Management page
-            gr.update(visible=True),  # AI Tools page
-            gr.update(variant="secondary"),  # Deactivate Service button
-            gr.update(variant="secondary"),  # Deactivate Task button
-            gr.update(variant="primary")  # Activate AI button
-        )
+            for service_name in service_names:
+                worker_ids = redis_scan_workers_by_service(service_name=service_name)
+                workers = []
+
+                for unique_id in worker_ids:
+                    try:
+                        worker_data = redis_get_full_worker_data(unique_id=unique_id)
+                        if worker_data:
+                            max_process = worker_data.get('worker_max_process', 10)
+                            running = worker_data.get('worker_run_process', [])
+                            run_process_count = len(running) if isinstance(running, list) else 0
+                            available_slots = max(0, max_process - run_process_count)
+
+                            workers.append({
+                                'unique_id': unique_id,
+                                'worker_name': worker_data.get('worker_name', ''),
+                                'service_ipaddr': worker_data.get('worker_ipaddr', ''),
+                                'version': worker_data.get('worker_version', ''),
+                                'max_process': max_process,
+                                'run_process_count': run_process_count,
+                                'available_slots': available_slots,
+                                'run_process': running,
+                                'functions': worker_data.get('worker_functions', {}),
+                                'pid': worker_data.get('worker_pid')
+                            })
+                    except Exception as e:
+                        self.logger.warning(f"Failed to get worker data for {unique_id}: {e}")
+                        continue
+
+                server_list.append({
+                    'service_name': service_name,
+                    'worker_count': len(workers),
+                    'workers': workers,
+                    'total_slots': sum(w.get('available_slots', 0) for w in workers),
+                    'total_running': sum(w.get('run_process_count', 0) for w in workers)
+                })
+
+            return jsonify({
+                'status': 'success',
+                'data': server_list
+            })
+        except Exception as e:
+            self.logger.error(f"Query server list failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def server_stats(self):
+        """Get server statistics"""
+        from astraflux.interface import get_all_service_names, redis_scan_workers_by_service, redis_get_worker_status
+
+        try:
+            service_names = get_all_service_names()
+            stats = {
+                'total_services': len(service_names),
+                'total_workers': 0,
+                'total_max_process': 0,
+                'total_running': 0,
+                'total_available': 0
+            }
+
+            for service_name in service_names:
+                worker_ids = redis_scan_workers_by_service(service_name=service_name)
+                stats['total_workers'] += len(worker_ids)
+
+                for unique_id in worker_ids:
+                    status = redis_get_worker_status(unique_id=unique_id)
+                    if status:
+                        stats['total_max_process'] += status.get('max_process', 0)
+                        stats['total_running'] += status.get('run_process_count', 0)
+                        stats['total_available'] += status.get('available_slots', 0)
+
+            return jsonify({
+                'status': 'success',
+                'data': stats
+            })
+        except Exception as e:
+            self.logger.error(f"Server stats failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def update_max_process(self):
+        """Update worker max process count"""
+        from astraflux.interface import redis_update_max_process
+
+        data = request.get_json() or {}
+        unique_id = data.get('unique_id')
+        max_process = data.get('max_process')
+
+        if not unique_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing parameter: unique_id'
+            }), 400
+
+        if max_process is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing parameter: max_process'
+            }), 400
+
+        try:
+            max_process = int(max_process)
+            if max_process < 1:
+                raise ValueError("Max process must be >= 1")
+            if max_process > 100:
+                raise ValueError("Max process cannot exceed 100")
+
+            redis_update_max_process(unique_id=unique_id, new_value=max_process)
+            self.logger.info(f"Updated max_process for {unique_id} to {max_process}")
+
+            return jsonify({
+                'status': 'success',
+                'message': 'Update successful',
+                'data': {
+                    'unique_id': unique_id,
+                    'max_process': max_process
+                }
+            })
+        except ValueError as e:
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 400
+        except Exception as e:
+            self.logger.error(f"Update max_process failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def query_task_list(self):
+        """Get paginated task list"""
+        from astraflux.interface import mongodb_find_paginated_from_task
+
+        status = request.args.get('status', '').strip().lower()
+        queue_name = request.args.get('queue_name', '').strip()
+        task_id = request.args.get('task_id', '').strip()
+        date = request.args.get('date', '').strip()
+
+        try:
+            page = max(1, int(request.args.get('page', 1)))
+            page_size = min(100, max(10, int(request.args.get('page_size', 20))))
+        except ValueError:
+            page, page_size = 1, 20
+
+        query = {}
+        if status:
+            query[TASK.CONFIG.STATUS.value] = status
+        if queue_name:
+            query[TASK.CONFIG.QUEUE_NAME.value] = queue_name
+        if task_id:
+            query[TASK.CONFIG.ID.value] = {'$regex': task_id, '$options': 'i'}
+        if date:
+            query[TASK.CONFIG.CREATE_TIME.value] = {'$regex': f'^{date}'}
+
+        try:
+            total, tasks = mongodb_find_paginated_from_task(
+                query=query,
+                fields={'_id': 0},
+                limit=page_size,
+                skip=(page - 1) * page_size,
+                sort_field=TASK.CONFIG.CREATE_TIME.value,
+                sort_order=-1
+            )
+
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'total': total,
+                    'page': page,
+                    'page_size': page_size,
+                    'tasks': tasks
+                }
+            })
+        except Exception as e:
+            self.logger.error(f"Query task list failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def task_stats(self):
+        """Get task statistics"""
+        from astraflux.interface import mongodb_find_from_task
+
+        try:
+            stats = {}
+
+            status_list = [
+                STATUS.PENDING.value,
+                STATUS.WAITING.value,
+                STATUS.RUNNING.value,
+                STATUS.SUCCESS.value,
+                STATUS.FAILED.value,
+                STATUS.STOPPED.value,
+                STATUS.RETRYING.value
+            ]
+
+            for s in status_list:
+                tasks = mongodb_find_from_task(
+                    query={TASK.CONFIG.STATUS.value: s},
+                    fields={'_id': 0, TASK.CONFIG.ID.value: 1}
+                )
+                stats[s.upper()] = len(tasks) if tasks else 0
+
+            stats['TOTAL'] = sum(stats.values())
+
+            return jsonify({
+                'status': 'success',
+                'data': stats
+            })
+        except Exception as e:
+            self.logger.error(f"Task stats failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def task_queues(self):
+        """Get all queue names"""
+        from astraflux.interface import mongodb_find_from_task
+
+        try:
+            tasks = mongodb_find_from_task(
+                query={},
+                fields={'_id': 0, TASK.CONFIG.QUEUE_NAME.value: 1}
+            )
+
+            queues = list(
+                set(t.get(TASK.CONFIG.QUEUE_NAME.value, '') for t in tasks if t.get(TASK.CONFIG.QUEUE_NAME.value)))
+            queues.sort()
+
+            return jsonify({
+                'status': 'success',
+                'data': queues
+            })
+        except Exception as e:
+            self.logger.error(f"Task queues failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def task_detail(self, task_id):
+        """Get task details"""
+        from astraflux.interface import mongodb_find_from_task
+
+        try:
+            tasks = mongodb_find_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                fields={'_id': 0}
+            )
+
+            if not tasks:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Task not found'
+                }), 404
+
+            return jsonify({
+                'status': 'success',
+                'data': tasks[0]
+            })
+        except Exception as e:
+            self.logger.error(f"Task detail failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def retry_task(self):
+        """Retry task - reset task status to PENDING"""
+        from astraflux.interface import mongodb_find_one_and_update_from_task, mongodb_find_from_task
+
+        data = request.get_json() or {}
+        task_id = data.get('task_id')
+
+        if not task_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing parameter: task_id'
+            }), 400
+
+        try:
+            tasks = mongodb_find_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                fields={'_id': 0, TASK.CONFIG.STATUS.value: 1}
+            )
+
+            if not tasks:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Task not found'
+                }), 404
+
+            mongodb_find_one_and_update_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                data={
+                    TASK.CONFIG.STATUS.value: STATUS.PENDING.value,
+                    TASK.CONFIG.START_TIME.value: None,
+                    TASK.CONFIG.END_TIME.value: None,
+                    TASK.CONFIG.ERROR_MESSAGE.value: None
+                },
+                upsert=False
+            )
+
+            self.logger.info(f"Task {task_id} retry triggered")
+            return jsonify({
+                'status': 'success',
+                'message': 'Task added to retry queue',
+                'data': {'task_id': task_id}
+            })
+        except Exception as e:
+            self.logger.error(f"Retry task failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def forced_termination_task(self):
+        """Force terminate task - update status and attempt to kill process"""
+        from astraflux.interface import mongodb_find_one_and_update_from_task, mongodb_find_from_task
+        from astraflux.core import global_manager
+
+        data = request.get_json() or {}
+        task_id = data.get('task_id')
+
+        if not task_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing parameter: task_id'
+            }), 400
+
+        try:
+            tasks = mongodb_find_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                fields={'_id': 0}
+            )
+
+            if not tasks:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Task not found'
+                }), 404
+
+            current_status = tasks[0].get(TASK.CONFIG.STATUS.value, '')
+            worker_pid = tasks[0].get(BUILD.CONFIG.WORKER_PID.value)
+            worker_unique_id = tasks[0].get(BUILD.CONFIG.UNIQUE_ID.value)
+
+            mongodb_find_one_and_update_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                data={
+                    TASK.CONFIG.STATUS.value: STATUS.STOPPED.value,
+                    TASK.CONFIG.END_TIME.value: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                },
+                upsert=False
+            )
+
+            process_killed = False
+            if worker_pid and current_status == STATUS.RUNNING.value:
+                try:
+                    import os
+                    import signal
+                    os.kill(worker_pid, signal.SIGTERM)
+                    process_killed = True
+                    self.logger.info(f"Sent SIGTERM to process {worker_pid} for task {task_id}")
+                except ProcessLookupError:
+                    process_killed = True
+                    self.logger.info(f"Process {worker_pid} already exited for task {task_id}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to kill process {worker_pid}: {e}")
+
+            if worker_unique_id and worker_pid:
+                try:
+                    from astraflux.interface import redis_remove_from_run_process
+                    redis_remove_from_run_process(
+                        unique_id=worker_unique_id,
+                        process_id=worker_pid
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove from run_process: {e}")
+
+            try:
+                redis_client = global_manager.get_fixture('fixture_redis_client')
+                conn = redis_client.get_connection()
+                conn.delete(f"task_process:{task_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to clean task_process mapping: {e}")
+
+            self.logger.info(f"Task {task_id} terminated (was: {current_status}, process_killed: {process_killed})")
+            return jsonify({
+                'status': 'success',
+                'message': 'Task terminated' + (' with kill signal sent' if process_killed else ''),
+                'data': {
+                    'task_id': task_id,
+                    'previous_status': current_status,
+                    'process_killed': process_killed
+                }
+            })
+        except Exception as e:
+            self.logger.error(f"Forced termination task failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
+
+    def kill_task_process(self):
+        """Kill task process directly via task_process mapping in Redis"""
+        import os
+        import signal
+        from astraflux.core import global_manager
+        from astraflux.interface import mongodb_find_one_and_update_from_task
+
+        data = request.get_json() or {}
+        task_id = data.get('task_id')
+
+        if not task_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing parameter: task_id'
+            }), 400
+
+        try:
+            redis_client = global_manager.get_fixture('fixture_redis_client')
+            conn = redis_client.get_connection()
+            key = f"task_process:{task_id}"
+            process_data = conn.hgetall(key)
+
+            if not process_data:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Task process mapping not found, task may not be running or already finished'
+                }), 404
+
+            process_id = int(process_data[b'process_id'].decode())
+            unique_id = process_data[b'unique_id'].decode()
+
+            try:
+                os.kill(process_id, signal.SIGTERM)
+                self.logger.info(f"Killed process {process_id} for task {task_id}")
+            except ProcessLookupError:
+                self.logger.info(f"Process {process_id} already exited")
+            except PermissionError:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Permission denied to terminate process {process_id}'
+                }), 403
+
+            conn.delete(key)
+
+            try:
+                from astraflux.interface import redis_remove_from_run_process
+                redis_remove_from_run_process(unique_id=unique_id, process_id=process_id)
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e)
+                }), 500
+
+            mongodb_find_one_and_update_from_task(
+                query={TASK.CONFIG.ID.value: task_id},
+                data={
+                    TASK.CONFIG.STATUS.value: STATUS.STOPPED.value,
+                    TASK.CONFIG.END_TIME.value: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                },
+                upsert=False
+            )
+
+            return jsonify({
+                'status': 'success',
+                'message': f'Process {process_id} terminated',
+                'data': {
+                    'task_id': task_id,
+                    'process_id': process_id
+                }
+            })
+
+        except Exception as e:
+            self.logger.error(f"Kill task process failed: {e}")
+            return jsonify({
+                'status': 'error',
+                'message': str(e)
+            }), 500
 
     def web_launch(self):
-        with gr.Blocks() as demo:
-            # Global state: control visibility of login page/homepage
-            login_panel = gr.Column(visible=True, elem_classes="login-container")
-            main_panel = gr.Column(visible=False)
-
-            # -------------------- Login Page --------------------
-            with login_panel:
-                gr.Markdown("# System Login")
-                username = gr.Textbox(label="Username", placeholder="Please enter your username")
-                password = gr.Textbox(label="Password", type="password", placeholder="Please enter your password")
-                login_btn = gr.Button("Login", variant="primary")
-                login_msg = gr.Markdown("", elem_id="login-msg")
-
-            # -------------------- Main Page (displayed after login) --------------------
-            with main_panel:
-                # Left menu + right content layout (add main-row class to ensure full width)
-                with gr.Row(elem_classes="main-row", height="90vh"):
-                    # Left navigation menu
-                    service_btn, task_btn, ai_tool_btn = create_side_nav_menu()
-
-                    # Right content area (80% width)
-                    with gr.Column(elem_classes="main-content"):
-                        # Service Management page container (displayed by default)
-                        service_page = gr.Column(visible=True)
-                        with service_page:
-                            create_service_manage_page()
-
-                        # Task Management page container (hidden by default)
-                        task_page = gr.Column(visible=False)
-                        with task_page:
-                            create_task_manage_page()
-
-                        # AI Tools page container (hidden by default)
-                        ai_page = gr.Column(visible=False)
-                        with ai_page:
-                            create_ai_tool_page()
-
-            # -------------------- Event Binding --------------------
-            # Login verification
-            login_btn.click(
-                fn=self.check_login,
-                inputs=[username, password],
-                outputs=[login_panel, main_panel, login_msg]
-            )
-
-            # Left menu navigation - Service Management (sync button active state)
-            service_btn.click(
-                fn=self.show_service_page,
-                outputs=[service_page, task_page, ai_page, service_btn, task_btn, ai_tool_btn]
-            )
-
-            # Left menu navigation - Task Management (sync button active state)
-            task_btn.click(
-                fn=self.show_task_page,
-                outputs=[service_page, task_page, ai_page, service_btn, task_btn, ai_tool_btn]
-            )
-
-            # Left menu navigation - AI Tools (sync button active state)
-            ai_tool_btn.click(
-                fn=self.show_ai_page,
-                outputs=[service_page, task_page, ai_page, service_btn, task_btn, ai_tool_btn]
-            )
-
-        # Launch application (Gradio 6.x specification)
-        demo.launch(
-            server_name=self.server_name,
-            server_port=self.prot,
-            debug=True,
-            share=False,
-            css=COMMON_CSS
+        """Launch the web application"""
+        self.route_registration()
+        self.logger.info(f"Web application starting on {self.bind_ip}:{self.port}")
+        self.app.run(
+            host=self.bind_ip,
+            port=self.port,
+            debug=False,
+            threaded=True
         )
+
+
+def main():
+    """Command line entry point"""
+    parser = argparse.ArgumentParser(description="AstraFlux Web Application Launcher")
+
+    parser.add_argument("--yaml_file", type=str, required=True,
+                        help="Path to YAML configuration file")
+    parser.add_argument("--class_path", type=str, required=True,
+                        help="Path to service class definition file")
+    parser.add_argument("--current_dir", type=str, required=True,
+                        help="Current working directory")
+
+    args = parser.parse_args()
+
+    sys.path.insert(0, args.current_dir)
+
+    AstraFlux(yaml_path=args.yaml_file, current_dir=args.current_dir)
+
+    _config = config_obj().get(WEB.CONFIG.KEY.value)
+
+    WebApp(config=_config).web_launch()
+
+
+if __name__ == '__main__':
+    main()

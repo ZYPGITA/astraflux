@@ -1,10 +1,10 @@
 # -*- encoding: utf-8 -*-
 
 import time
-import pytz
 import dill
 import threading
 import multiprocessing
+from zoneinfo import ZoneInfo
 from pymongo import MongoClient
 from threading import Thread, Event
 from datetime import datetime, timedelta, tzinfo
@@ -21,14 +21,11 @@ class AdvancedCronScheduler:
     Supports format: second minute hour day month weekday
     """
 
-    def __init__(self, cron_expression: str, timezone: Union[str, tzinfo] = pytz.UTC):
-        """
-        Initialize Cron Scheduler
-
+    def __init__(self, cron_expression: str, timezone: Union[str, tzinfo] = ZoneInfo("UTC")):
+        """ Initialize Cron Scheduler
         Args:
             cron_expression: Cron expression (6 parts: second minute hour day month weekday)
             timezone: Timezone, supports string or tzinfo object
-
         Raises:
             ValueError: When cron expression is invalid
         """
@@ -116,7 +113,11 @@ class AdvancedCronScheduler:
             Next execution time (in UTC timezone)
         """
         if from_time is None:
-            from_time = datetime.now(pytz.UTC)
+            from_time = datetime.now(ZoneInfo("UTC"))
+
+        # Ensure from_time has timezone
+        if from_time.tzinfo is None:
+            from_time = from_time.replace(tzinfo=ZoneInfo("UTC"))
 
         local_time = from_time.astimezone(self.timezone)
 
@@ -147,7 +148,7 @@ class AdvancedCronScheduler:
                 candidate = self._next_second(candidate)
                 continue
 
-            return candidate.astimezone(pytz.UTC)
+            return candidate.astimezone(ZoneInfo("UTC"))
 
         return None
 
@@ -219,7 +220,7 @@ class AdvancedCronScheduler:
             Boolean indicating if expression is valid
         """
         try:
-            test_time = datetime(2020, 1, 1, tzinfo=pytz.UTC)
+            test_time = datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))
             self.get_next_execution_time(test_time)
             return True
         except Exception as e:
@@ -238,9 +239,9 @@ class AdvancedCronScheduler:
 
 
 def _parse_timezone(timezone: Union[str, tzinfo]) -> tzinfo:
-    """Parse timezone configuration"""
+    """Parse timezone configuration using zoneinfo"""
     if isinstance(timezone, str):
-        return pytz.timezone(timezone)
+        return ZoneInfo(timezone)
     elif isinstance(timezone, tzinfo):
         return timezone
     else:
@@ -346,7 +347,7 @@ class UniversalScheduler:
             daemon=True
         )
         self._scheduler_thread.start()
-        self.logger.info("Universal scheduler started successfully")
+        self.logger.debug("Universal scheduler started successfully")
 
     def stop_scheduler(self) -> None:
         """
@@ -356,7 +357,7 @@ class UniversalScheduler:
             self.logger.warning("Scheduler is not running")
             return
 
-        self.logger.info("Stopping distributed job scheduler...")
+        self.logger.debug("Stopping distributed job scheduler...")
         self._scheduler_active.clear()
 
         # Wait for scheduler thread to finish
@@ -367,17 +368,17 @@ class UniversalScheduler:
 
         # Stop all lock refresh threads
         self._stop_all_lock_refreshers()
-        self.logger.info("Distributed job scheduler stopped successfully")
+        self.logger.debug("Distributed job scheduler stopped successfully")
 
     def _scheduling_loop(self) -> None:
         """
         Main scheduling loop that checks for due jobs
         """
-        self.logger.info("Scheduling loop started")
+        self.logger.debug("Scheduling loop started")
 
         while self._scheduler_active.is_set():
             try:
-                current_time = datetime.now(pytz.utc)
+                current_time = datetime.now(ZoneInfo("UTC"))
 
                 # Find jobs that are due for execution
                 due_jobs = self._find_due_jobs(current_time)
@@ -475,8 +476,8 @@ class UniversalScheduler:
             lock_type: Type of lock ("distributed_unique" or "ip_unique")
         """
         try:
-            lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
-            current_time = datetime.now(pytz.utc)
+            lock_expiry = datetime.now(ZoneInfo("UTC")) + timedelta(seconds=self._lock_expire_seconds)
+            current_time = datetime.now(ZoneInfo("UTC"))
 
             # Try to update existing expired lock or insert new lock
             result = self._job_locks.find_one_and_update(
@@ -615,7 +616,7 @@ class UniversalScheduler:
                 {
                     "$set": {
                         "next_execution_time": next_execution,
-                        "last_execution_time": datetime.now(pytz.utc),
+                        "last_execution_time": datetime.now(ZoneInfo("UTC")),
                         "last_execution_ip": self.local_ip
                     }
                 }
@@ -659,7 +660,7 @@ class UniversalScheduler:
 
         while not stop_event.is_set():
             try:
-                lock_expiry = datetime.now(pytz.utc) + timedelta(seconds=self._lock_expire_seconds)
+                lock_expiry = datetime.now(ZoneInfo("UTC")) + timedelta(seconds=self._lock_expire_seconds)
 
                 result = self._job_locks.update_one(
                     {"job_id": lock_key, "lock_type": execution_mode},
@@ -738,7 +739,7 @@ class UniversalScheduler:
                 "last_execution_ip": None,
                 "execution_type": execution_type,
                 "execution_mode": execution_mode,
-                "created_time": datetime.now(pytz.utc)
+                "created_time": datetime.now(ZoneInfo("UTC"))
             }
 
             if allowed_ips is not None:
@@ -750,7 +751,7 @@ class UniversalScheduler:
             else:
                 self._scheduled_jobs.insert_one(job_data)
 
-            self.logger.info(f"Job '{job_id}' added successfully with mode: {execution_mode}")
+            self.logger.debug(f"Job '{job_id}' added successfully with mode: {execution_mode}")
             return True
 
         except Exception as e:
@@ -797,7 +798,7 @@ class UniversalScheduler:
             result = self._scheduled_jobs.delete_one({"_id": job_id})
 
             if result.deleted_count > 0:
-                self.logger.info(f"Job '{job_id}' removed successfully")
+                self.logger.debug(f"Job '{job_id}' removed successfully")
                 # Clean up all possible lock types for this job
                 for execution_mode in [ExecutionMode.DISTRIBUTED_UNIQUE.value, ExecutionMode.IP_UNIQUE.value]:
                     lock_key = self._get_lock_key(job_id, execution_mode)
@@ -822,7 +823,7 @@ def _schedule(fixture_config, fixture_logger):
     schedule fixture
     """
     _mongodb_config = fixture_config[MONGODB.CONFIG.KEY.value]
-    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'LauncherManager')
+    _logger = fixture_logger.get_logger(PROJECT.NAME.value, 'schedule_manager')
 
     _universal_scheduler = UniversalScheduler(
         config=_mongodb_config, logger=_logger
