@@ -338,3 +338,188 @@ thread executors are better for I/O-bound operations.
     - Failed tasks after max retries are tracked and can be retrieved via ``get_failed_tasks()``
 
 For more interface usage, please refer to astraflux.interface.
+
+Astra Agent Usage
+-----------------
+
+5.1 Overview
+~~~~~~~~~~~~
+
+``astra_agents`` is a built-in AI agent module of the AstraFlux framework. It provides
+two agent implementations:
+
+- **AstraNativeAgent** — A native AI agent that uses the OpenAI SDK directly,
+  supports tool registration, conversation history management, and automatic tool
+  call handling without relying on third-party agent frameworks.
+
+- **OpenClawChat** — A client that communicates with an `OpenClaw <https://github.com/openclaw/openclaw>`__
+  AI gateway, managing system prompts, skill learning tasks, and streaming chat
+  interactions.
+
+Both agents share a common skill system located at ``astraflux/astra_agents/skill/``.
+The framework also supports expandable skills (user-defined skill plugins).
+
+5.2 Skill System
+~~~~~~~~~~~~~~~~
+
+The agent skill system is a plug-in system that provides AI agents with the ability
+to call various local and external tools. The system has two types of skills:
+
+.. code-block:: text
+
+    astraflux/astra_agents/skill/          # Built-in system skills (read-only)
+        dirs/                              # Directory/file system operations
+        exec/                              # Shell command execution (cross-platform)
+        files/                             # File read/write (multi-format)
+        Internet/                          # Web search, fetch, download, URL check
+
+    <project_dir>/<expand_skill_directory>/  # User-defined expandable skills (read-only)
+
+**Built-in Skills:**
+
+.. list-table::
+    :widths: 15 30 55
+
+    * - **Skill**
+      - **Tools**
+      - **Description**
+    * - ``dirs``
+      - ``create_directory``, ``remove_directory``, ``list_directory``, ``rename_directory``, ``get_directory_info``, ``set_permissions``, ``get_permissions``
+      - Create, remove, list, rename directories; query and set file/directory permission information.
+    * - ``exec``
+      - ``execute``
+      - Cross-platform shell command execution (Windows/Linux/macOS/WSL). Supports various shells (cmd, PowerShell, bash, zsh), environment variable injection, timeout, and working directory settings.
+    * - ``files``
+      - ``read_file``, ``write_file``, ``show_format_example``
+      - Unified file reading and writing for multiple formats: txt, json, csv, xml, yaml, toml, ini, env, excel. Automatically detects format by file extension or explicit specification.
+    * - ``Internet``
+      - ``search_web``, ``fetch_webpage``, ``download_file``, ``check_url``
+      - Search (supports DuckDuckGo, Google, Baidu, Yandex, Yahoo, Bing), fetch web page content as markdown/text, download files, check URL accessibility.
+
+5.3 Configuration
+~~~~~~~~~~~~~~~~~
+
+The agent is configured through the ``config.yaml`` file in the AstraFlux configuration:
+
+.. code-block:: yaml
+
+    # Example config.yaml entries for astra_agents
+
+    openai:  # Configuration for AstraNativeAgent
+      model_api:
+        server: https://api.openai.com/v1
+        apikey: your-api-key-here
+        name: gpt-4o  # or gpt-4o-mini, deepseek-chat, etc.
+      temporary_directory: temporary_directory   # Writable directory for agent
+      expand_skill_directory: expand_skill       # User skill plugin directory
+
+    openclaw:  # Configuration for OpenClawChat
+      server: http://localhost:8120
+      token: your-openclaw-token
+      session_key: your-session-key
+      temporary_directory: temporary_directory   # Writable directory for agent
+      expand_skill_directory: expand_skill       # User skill plugin directory
+
+**Configuration fields:**
+
+- ``server`` — API server URL (OpenAI-compatible API or OpenClaw gateway)
+- ``apikey`` / ``token`` — API authentication
+- ``name`` — Model name (e.g., ``gpt-4o``, ``deepseek-chat``)
+- ``temporary_directory`` — The only writable directory the agent can use
+- ``expand_skill_directory`` — Directory for user-defined skill plugins
+
+5.4 AstraNativeAgent Basic Usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # -*- coding: utf-8 -*-
+    import os
+    from astraflux import *
+
+    # 1. Initialize AstraFlux framework
+    current_dir = os.path.dirname(__file__)
+    AstraFlux(
+        yaml_path=f"{current_dir}/config.yaml",
+        current_dir=current_dir
+    )
+
+    # 2. Chat with the agent (async)
+    import asyncio
+
+    def backcall(data):
+        print(data)
+
+    message = 'Hello !'
+    asyncio.run(o.chat(message, backcall))
+
+5.5 OpenClawChat Basic Usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # -*- coding: utf-8 -*-
+    import os
+    from astraflux import AstraFlux
+
+    # 1. Initialize AstraFlux framework
+    current_dir = os.path.dirname(__file__)
+    AstraFlux(
+        yaml_path=f"{current_dir}/config.yaml",
+        current_dir=current_dir
+    )
+
+    # 2. Send a message (streaming)
+    response_gen = send_message_to_openclaw(
+        user_message="List files in the current directory"
+    )
+    for chunk in response_gen:
+        print(chunk, end="", flush=True)
+
+**Key Methods:**
+
+- ``send_message_to_openclaw(user_message, user_id, prompt)`` — Send a message (returns streaming generator)
+- ``stream_chat(payload)`` — Low-level streaming API call
+- ``initialize_ai()`` — Called automatically on construction; sends system learning tasks
+
+5.6 Custom Tool Registration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can register custom Python functions as tools for ``AstraNativeAgent``:
+
+.. code-block:: python
+
+    from astraflux.astra_agents.astra_agent import AstraAgentApi
+
+    # After creating the agent instance
+    @agent.register_tool
+    def get_weather(city: str) -> str:
+        """Get current weather for a city."""
+        return f"Weather in {city}: Sunny, 22C"
+
+    # Or call directly
+    def my_tool(name: str, count: int = 10) -> str:
+        """My custom tool description."""
+        return f"Processed {count} items for {name}"
+
+    agent.register_tool(my_tool, name="process_items", description="Process items for a user")
+
+The agent automatically extracts parameter schemas from Python type annotations
+and builds OpenAI-compatible tool definitions.
+
+5.7 Expandable Skills
+~~~~~~~~~~~~~~~~~~~~~
+
+To create your own skill plugin, follow the built-in skill conventions:
+
+1. Create a subdirectory in the ``expand_skill_directory`` configured in ``config.yaml``
+2. Add an ``__init__.py`` containing ``@function_tool``-decorated functions
+3. On initialization, the agent automatically scans and registers all ``__init__.py``
+   files in the expandable skill directory
+
+.. note:: The ``function_tool`` decorator must be imported from
+          ``astraflux.interface.astra_agents`` (or ``agents`` for compatibility
+          with the Open AI Agents SDK). The agent uses the ``_is_function_tool``
+          attribute to discover tool functions during dynamic import.
+
+For more interface usage, please refer to astraflux.interface.

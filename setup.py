@@ -5,7 +5,7 @@ with open("README.en.rst", "r", encoding="utf-8") as f:
 
 setup(
     name='astraflux',
-    version='1.3.7',
+    version='1.4.0',
     description="AstraFlux Description",
     long_description=long_description,
     include_package_data=True,
@@ -16,7 +16,7 @@ setup(
     license='MIT License',
     url='https://github.com/ZYPGITA/astraflux',
     packages=find_packages(),
-    keywords=["distributed", "microservice", "task-queue", "rpc", "scheduler"],
+    keywords=["distributed", "microservice", "task-queue", "rpc", "scheduler", "agent", "AI"],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
@@ -26,7 +26,6 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
-        'requests~=2.32.5',
         'pika~=1.3.2',
         'dill~=0.4.0',
         'PyYAML~=6.0.2',
@@ -35,7 +34,10 @@ setup(
         'psutil~=7.1.3',
         'flask_cors~=6.0.2',
         'flask~=3.1.2',
-        'openai>=2.28',
-        'openai-agents>=0.14'
+        'openai~=2.28.0',
+        'openpyxl~=3.1.5',
+        'tomli~=2.4.1',
+        'tomli_w~=1.2.0',
+        'requests~=2.32.5'
     ]
 )
