@@ -2,7 +2,7 @@
 
 import platform
 
-from agents import function_tool
+from astraflux.interface.astra_agents import function_tool
 
 from astraflux.astra_agents.skill.exec._win import Run as WinRun
 from astraflux.astra_agents.skill.exec._unix import Run as UnixRun
@@ -40,9 +40,7 @@ def _is_wsl_from_windows() -> bool:
     return has_wsl_support()
 
 
-# ── Public API ─────────────────────────────────────────────────────────
-
-@function_tool(strict_mode=False)
+@function_tool
 def execute(
         command: str,
         cwd: str = "",

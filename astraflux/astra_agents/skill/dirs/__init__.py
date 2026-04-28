@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from agents import function_tool
+from astraflux.interface.astra_agents import function_tool
 
 from astraflux.astra_agents.skill.dirs._core import (
     create_directory as _create_directory,

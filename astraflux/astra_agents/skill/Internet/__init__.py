@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-Internet skill — unified entry point.
 
-Exposes search, web fetch, file download, and URL check functions.
-Concrete implementations are in sibling `_*.py` files.
-"""
-
-from agents import function_tool
+from astraflux.interface.astra_agents import function_tool
 
 from astraflux.astra_agents.skill.Internet._search import search_impl, SUPPORTED_ENGINES
 from astraflux.astra_agents.skill.Internet._fetch import fetch_impl

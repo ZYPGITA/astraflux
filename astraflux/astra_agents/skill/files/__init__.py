@@ -3,8 +3,9 @@
 import os
 import json
 from pathlib import Path
-from agents import function_tool
 import xml.etree.ElementTree as Et
+
+from astraflux.interface.astra_agents import function_tool
 
 from astraflux.astra_agents.skill.files._txt import Write as TxtWrite
 from astraflux.astra_agents.skill.files._json import Write as JsonWrite
